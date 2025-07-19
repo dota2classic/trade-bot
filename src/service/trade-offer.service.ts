@@ -1,10 +1,5 @@
 import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
-import {
-  Currency,
-  DOTA_APPID,
-  ETradeOfferState,
-  TradeOfferStatus,
-} from '../constant';
+import { ETradeOfferState, TradeOfferStatus } from '../constant';
 import { EOfferFilter } from 'steam-tradeoffer-manager';
 import CEconItem from 'steamcommunity/classes/CEconItem';
 import TradeOffer from 'steam-tradeoffer-manager/lib/classes/TradeOffer';
@@ -14,15 +9,17 @@ import { MarketItemEntity } from '../entities/market-item.entity';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { ItemPriceService } from './item-price.service';
-import { marketHashToSelectorName } from '../util/marketHashToName';
 import { TradeOfferEntity } from '../entities/trade-offer.entity';
 import { TradeOfferItemEntity } from '../entities/trade-offer-item.entity';
 import { UserMarketBalanceEntity } from '../entities/user-market-balance.entity';
 import { Cron, CronExpression } from '@nestjs/schedule';
+import { wait } from '../util/wait';
 
 @Injectable()
 export class TradeOfferService implements OnApplicationBootstrap {
   private logger = new Logger(TradeOfferService.name);
+
+  private tradeOfferProcessMap = new Map<string, boolean>();
 
   constructor(
     private readonly steam: Steam,
@@ -35,39 +32,74 @@ export class TradeOfferService implements OnApplicationBootstrap {
     private readonly tradeOfferItemEntityRepository: Repository<TradeOfferItemEntity>,
     private readonly ds: DataSource,
   ) {}
+
   async onApplicationBootstrap() {
     await this.processOffers();
   }
 
   @Cron(CronExpression.EVERY_MINUTE)
   public async processOffers() {
-    const { sent, received } = await new Promise<{
-      sent: TradeOffer[];
-      received: TradeOffer[];
-    }>((resolve, reject) => {
-      this.steam.trade.getOffers(
-        EOfferFilter.All,
-        new Date(Date.now() - 1000 * 60 * 60 * 24 * 21), // 21 days
-        async (err, sent, received) => {
-          if (err) {
-            reject(err);
-          } else {
-            resolve({
-              sent,
-              received,
-            });
-          }
-        },
-      );
-    });
+    try {
+      const { sent, received } = await new Promise<{
+        sent: TradeOffer[];
+        received: TradeOffer[];
+      }>((resolve, reject) => {
+        this.steam.trade.getOffers(
+          EOfferFilter.All,
+          new Date(Date.now() - 1000 * 60 * 60 * 24 * 21), // 21 days
+          async (err, sent, received) => {
+            if (err) {
+              reject(err);
+            } else {
+              resolve({
+                sent,
+                received,
+              });
+            }
+          },
+        );
+      });
 
-    await Promise.all(received.map((offer) => this.handleOffer(offer)));
+      await Promise.all(
+        received.map((offer) => {
+          if (this.tradeOfferProcessMap.get(offer.id)) return;
+          try {
+            this.tradeOfferProcessMap.set(offer.id, true);
+            this.handleOffer(offer);
+          } catch (e) {
+            this.logger.warn(
+              `There was an issue processing trade offer ${offer.id}`,
+            );
+          } finally {
+            this.tradeOfferProcessMap.set(offer.id, false);
+          }
+        }),
+      );
+    } catch (e) {
+      this.logger.error('There was an issue processing offers', e);
+    }
   }
 
   private async handleOffer(offer: TradeOffer) {
+    if (offer.state === ETradeOfferState.Active) {
+      // Donation?
+      if (offer.itemsToGive.length === 0) {
+        const status = await new Promise((resolve, reject) =>
+          offer.accept((err, response) => {
+            if (err) {
+              reject(err);
+              return;
+            }
+            resolve(response);
+          }),
+        );
+        this.logger.log(`Handled active donation offer: status is ${status}`);
+        return;
+      }
+    }
+
     // We only handle accepted offers
     if (offer.state !== ETradeOfferState.Accepted) {
-      this.logger.warn('Trade is not accepted: we skip it');
       return;
     }
 
@@ -78,62 +110,46 @@ export class TradeOfferService implements OnApplicationBootstrap {
       },
     });
     if (alreadyHandled) {
-      this.logger.warn('Trade is already saved: we skip it');
+      // this.logger.warn('Trade is already saved: we skip it');
       return;
     }
 
-    // Find matching patch items
-    const matched = await Promise.all(
-      offer.itemsToReceive.map(async (item) => {
-        return {
-          item,
-          marketItem: await this.marketItemEntityRepository.findOne({
-            where: marketHashToSelectorName(item.market_hash_name),
-          }),
-        };
-      }),
+    this.logger.log(
+      `Handling new accepted offer of ${offer.itemsToReceive.length} items from ${offer.partner.accountid}!`,
     );
+    const marketItems: { item: CEconItem; marketPriceItem: CMarketItem }[] = [];
 
     // Price check them
-    const marketItems = await Promise.all(
-      matched.map(async ({ item, marketItem }) => {
-        return {
-          item,
-          marketItem,
-          marketPriceItem: await this.getMarketItem(item),
-        };
-      }),
-    );
+    for (let cEconItem of offer.itemsToReceive) {
+      try {
+        marketItems.push({
+          item: cEconItem,
+          marketPriceItem: await this.itemPriceService.getMarketItem(cEconItem),
+        });
+        this.logger.log(`Price checked item ${cEconItem.market_hash_name}`);
+      } catch (e) {
+        this.logger.warn('There was an issue price checking item!', e);
+      } finally {
+        await wait(3000);
+      }
+    }
 
     // Update prices of our patch items
     await Promise.all(
-      marketItems
-        .filter((t) => !!t.marketItem)
-        .map(async (item) =>
-          this.itemPriceService.updateItemMarketData(
-            item.marketPriceItem.firstAsset.market_hash_name,
-            item.marketPriceItem.lowestPrice,
-            item.marketPriceItem.firstAsset.type,
-          ),
+      marketItems.map(async (item) =>
+        this.itemPriceService.updateItemMarketData(
+          item.marketPriceItem._hashName,
+          item.marketPriceItem.lowestPrice,
+          item.marketPriceItem.firstAsset?.type,
+          item.marketPriceItem.firstAsset?.icon_url_large,
+          item.marketPriceItem.firstAsset?.icon_url,
+          item.marketPriceItem.quantity,
         ),
+      ),
     );
 
     await this.acceptTradeOffer(offer, marketItems);
   }
-
-  private getMarketItem = async (item: CEconItem): Promise<CMarketItem> => {
-    return new Promise((resolve, reject) =>
-      this.steam.community.getMarketItem(
-        DOTA_APPID,
-        item.market_hash_name,
-        Currency.USD,
-        (err, res) => {
-          if (err) reject(err);
-          else resolve(res as CMarketItem);
-        },
-      ),
-    );
-  };
 
   // Called on new accepted trade offer
   private async acceptTradeOffer(
@@ -141,7 +157,6 @@ export class TradeOfferService implements OnApplicationBootstrap {
     items: {
       item: CEconItem;
       marketPriceItem: CMarketItem;
-      marketItem: MarketItemEntity;
     }[],
   ) {
     const steamId = tradeOffer.partner.accountid.toString();
@@ -153,16 +168,14 @@ export class TradeOfferService implements OnApplicationBootstrap {
       );
 
       // Add traded patch items to it
-      const tradedItems = items
-        .filter((t) => !!t.marketItem)
-        .map(
-          (it) =>
-            new TradeOfferItemEntity(
-              offer.id,
-              it.marketItem.id,
-              it.marketPriceItem.lowestPrice,
-            ),
-        );
+      const tradedItems = items.map(
+        (it) =>
+          new TradeOfferItemEntity(
+            offer.id,
+            it.marketPriceItem._hashName,
+            it.marketPriceItem.lowestPrice,
+          ),
+      );
       await tx.save(TradeOfferItemEntity, tradedItems);
 
       // Count total traded amount

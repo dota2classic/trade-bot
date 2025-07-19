@@ -2,14 +2,11 @@ import {
   Column,
   Entity,
   Index,
-  OneToMany,
   PrimaryColumn,
   PrimaryGeneratedColumn,
-  Relation,
   UpdateDateColumn,
 } from 'typeorm';
 import { ItemQuality } from '../constant';
-import { TradeOfferItemEntity } from './trade-offer-item.entity';
 
 @Entity('market_item')
 @Index('market_hash_name_quality_unique', ['marketHashName', 'quality'], {
@@ -47,12 +44,30 @@ export class MarketItemEntity {
   price: number;
 
   @Column({
+    name: 'quantity',
+    type: 'int',
+    default: 0,
+  })
+  quantity: number;
+
+  @Column({
     name: 'type',
     type: 'text',
     default: '',
   })
   type: string;
 
-  @OneToMany(() => TradeOfferItemEntity, (t) => t.item)
-  traded: Relation<TradeOfferItemEntity>[];
+  @Column({
+    name: 'large_icon',
+    type: 'text',
+    default: '',
+  })
+  largeIcon: string;
+
+  @Column({
+    name: 'small_icon',
+    type: 'text',
+    default: '',
+  })
+  smallIcon: string;
 }

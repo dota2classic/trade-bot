@@ -1,6 +1,25 @@
-# compiled output
-dist
+# Node modules & builds
 node_modules
+dist
+.cache
+
+# Dependencies (rebuild inside container)
+*.log
+package-lock.json
+pnpm-lock.yaml
+
+
+# Git
+.git
+.gitignore
+
+# Docker
+docker-compose.yml
+Dockerfile*
+.dockerignore
+
+
+config.yaml
 2fa/
 .env
 # Logs

@@ -5,7 +5,6 @@ import {
   ManyToOne,
   PrimaryGeneratedColumn,
 } from 'typeorm';
-import { MarketItemEntity } from './market-item.entity';
 import { TradeOfferEntity } from './trade-offer.entity';
 
 @Entity('trade_offer_item')
@@ -25,17 +24,12 @@ export class TradeOfferItemEntity {
   })
   offerId: number;
 
-  @ManyToOne(() => MarketItemEntity, (t) => t.traded, { eager: true })
-  @JoinColumn({
-    name: 'item_id',
-    referencedColumnName: 'id',
-  })
-  item: MarketItemEntity;
-
   @Column({
-    name: 'item_id',
+    name: 'market_hash_name',
+    default: '',
+    type: "text"
   })
-  itemId: number;
+  marketHashName: string;
 
   @Column({
     name: 'price',
@@ -44,9 +38,9 @@ export class TradeOfferItemEntity {
   })
   price: number;
 
-  constructor(offerId: number, itemId: number, price: number) {
+  constructor(offerId: number, marketHashName: string, price: number) {
     this.offerId = offerId;
-    this.itemId = itemId;
+    this.marketHashName = marketHashName;
     this.price = price;
   }
 }
