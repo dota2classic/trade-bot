@@ -97,10 +97,6 @@ import { TradeController } from './trade.controller';
 
         const steam = new Steam(manager, client, community, market);
 
-        client.on('refreshToken', (token) => {
-          console.log('Refresh token:', token);
-        });
-
         const logPromise = new Promise<void>((resolve) => {
           client.on('loggedOn', () => {
             resolve();
