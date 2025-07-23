@@ -14,11 +14,11 @@ export class RmqController {
   @RabbitSubscribe({
     exchange: 'app.events',
     routingKey: GameResultsEvent.name,
-    queue: `gs-queue.${GameResultsEvent.name}`,
+    queue: `trade-queue.${GameResultsEvent.name}`,
     errorBehavior: MessageHandlerErrorBehavior.ACK,
   })
   async GameResultsEvent(data: GameResultsEvent) {
-    this.itemDropService.onMatchFinished(
+    await this.itemDropService.onMatchFinished(
       data.type,
       data.matchId,
       data.players.map((t) => t.steam_id),
