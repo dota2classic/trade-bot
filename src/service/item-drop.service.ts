@@ -14,7 +14,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { MatchmakingMode } from '../gateway/shared-types/matchmaking-mode';
 import { DropSettingsEntity } from '../entities/drop-settings.entity';
 import { shuffleArray } from '../util/shuffle';
-import { AmqpConnection } from "@golevelup/nestjs-rabbitmq";
+import { AmqpConnection } from '@golevelup/nestjs-rabbitmq';
+import { ItemDroppedEvent } from '../gateway/events/item-dropped.event';
 
 @Injectable()
 export class ItemDropService {
@@ -34,7 +35,7 @@ export class ItemDropService {
     private readonly droppedItemEntityRepository: Repository<DroppedItemEntity>,
     @InjectRepository(DropSettingsEntity)
     private readonly dropSettingsEntityRepository: Repository<DropSettingsEntity>,
-    private readonly amqpConnection: AmqpConnection
+    private readonly amqpConnection: AmqpConnection,
   ) {}
 
   @Cron('0 3 * * MON')
@@ -203,7 +204,6 @@ ORDER BY missing DESC,
          weight DESC;`);
   }
 
-
   public async onMatchFinished(
     type: MatchmakingMode,
     matchId: number,
@@ -226,7 +226,8 @@ ORDER BY missing DESC,
       try {
         if (Math.random() < dropChance) {
           // We are lucky! drop an item
-          await this.pickItemDrop(players[i]);
+          const assetId = await this.pickItemDrop();
+          await this.saveDroppedItem(assetId, matchId, players[i]);
         }
       } catch (e) {
         this.logger.error('Error dropping item!', e);
@@ -236,7 +237,7 @@ ORDER BY missing DESC,
     }
   }
 
-  private async pickItemDrop(steamId: string) {
+  private async pickItemDrop(): Promise<string | undefined> {
     const randomItem = await this.ds
       .query<
         {
@@ -293,14 +294,22 @@ LIMIT 1;
       return;
     }
 
-    await this.saveDroppedItem(randomItem.asset_id, steamId);
+    return randomItem.asset_id;
   }
 
-
-  private async saveDroppedItem(assetId: string, steamId: string) {
+  private async saveDroppedItem(
+    assetId: string,
+    matchId: number,
+    steamId: string,
+  ) {
     const droppedItem = await this.droppedItemEntityRepository.save(
-      new DroppedItemEntity(assetId, steamId),
+      new DroppedItemEntity(assetId, matchId, steamId),
     );
-    this.amqpConnection.publish(new )
+    await this.amqpConnection.publish(
+      'app.events',
+      ItemDroppedEvent.name,
+      new ItemDroppedEvent(matchId, steamId, assetId),
+    );
+    this.logger.log('Published drop item event');
   }
 }

@@ -13,14 +13,20 @@ export class DroppedItemEntity {
   })
   steamId: string;
 
+  @Column({
+    name: 'match_id',
+  })
+  matchId: number;
+
   @CreateDateColumn({
     name: 'created',
   })
   created: Date;
 
 
-  constructor(assetId: string, steamId: string) {
+  constructor(assetId: string, matchId: number, steamId: string) {
     this.assetId = assetId;
     this.steamId = steamId;
+    this.matchId = matchId;
   }
 }

@@ -118,9 +118,6 @@ export class ItemPriceService {
       `Total indexed items: ${indexed} / ${await this.marketItemEntityRepository.count()}`,
     );
     const toCheck = await this.marketItemEntityRepository.find({
-      where: {
-        quality: ItemQuality.Standard,
-      },
       order: {
         updated: 'ASC',
       },
