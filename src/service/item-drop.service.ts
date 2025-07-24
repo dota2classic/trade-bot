@@ -96,7 +96,7 @@ export class ItemDropService {
     });
   }
 
-  // @Cron(CronExpression.EVERY_MINUTE)
+  @Cron(CronExpression.EVERY_MINUTE)
   public async replenishStock() {
     const listed = await this.steam.market.myListings(0, 100);
     const alreadyListed = listed.buyOrders.map((t) => t.hashName);

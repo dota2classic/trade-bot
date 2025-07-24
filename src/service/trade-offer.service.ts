@@ -14,6 +14,7 @@ import { TradeOfferItemEntity } from '../entities/trade-offer-item.entity';
 import { UserMarketBalanceEntity } from '../entities/user-market-balance.entity';
 import { wait } from '../util/wait';
 import { DroppedItemEntity } from '../entities/dropped-item.entity';
+import { Cron, CronExpression } from "@nestjs/schedule";
 
 @Injectable()
 export class TradeOfferService implements OnApplicationBootstrap {
@@ -34,10 +35,10 @@ export class TradeOfferService implements OnApplicationBootstrap {
   ) {}
 
   async onApplicationBootstrap() {
-    await this.processOffers();
+    // await this.processOffers();
   }
 
-  // @Cron(CronExpression.EVERY_MINUTE)
+  @Cron(CronExpression.EVERY_MINUTE)
   public async processOffers() {
     try {
       const { sent, received } = await new Promise<{

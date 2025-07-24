@@ -46,8 +46,6 @@ export class ItemPriceService {
       allListings.push(...result.results);
     }
 
-
-
     const actualQualities: (MarketItemSelector & {
       sellPrice: number;
       quantity: number;
@@ -90,7 +88,6 @@ export class ItemPriceService {
       `Delete ${deletion.affected} non existing market items for ${item.marketHashName}`,
     );
 
-
     await Promise.all(
       actualQualities.map((t) =>
         this.updateItemMarketData(
@@ -109,7 +106,7 @@ export class ItemPriceService {
     );
   }
 
-  @Cron(CronExpression.EVERY_10_SECONDS)
+  @Cron(CronExpression.EVERY_MINUTE)
   public async priceCheck() {
     const indexed = await this.marketItemEntityRepository.count({
       where: {
