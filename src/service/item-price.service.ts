@@ -8,7 +8,7 @@ import { CMarketItem } from '../steamexts';
 import { Steam } from '../steam';
 import { MarketItemSelector } from '../util/marketHashToName';
 import { SearchResult } from '@dota2classic/steam-market';
-import { Cron, CronExpression } from "@nestjs/schedule";
+import { Cron, CronExpression } from '@nestjs/schedule';
 
 @Injectable()
 export class ItemPriceService {
@@ -45,6 +45,8 @@ export class ItemPriceService {
       }
       allListings.push(...result.results);
     }
+
+
 
     const actualQualities: (MarketItemSelector & {
       sellPrice: number;
@@ -87,6 +89,7 @@ export class ItemPriceService {
     this.logger.log(
       `Delete ${deletion.affected} non existing market items for ${item.marketHashName}`,
     );
+
 
     await Promise.all(
       actualQualities.map((t) =>
@@ -191,11 +194,7 @@ export class ItemPriceService {
       quality = ItemQuality.Standard;
     }
 
-    await this.marketItemEntityRepository.update(
-      {
-        marketHashName: itemName,
-        quality: quality,
-      },
+    await this.marketItemEntityRepository.upsert(
       {
         price,
         type,
@@ -203,7 +202,10 @@ export class ItemPriceService {
         largeIcon,
         smallIcon,
         updated: new Date(),
+        marketHashName: itemName,
+        quality: quality,
       },
+      ['marketHashName', 'quality'],
     );
   }
 }

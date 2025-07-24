@@ -36,7 +36,9 @@ export class ItemDropService {
     @InjectRepository(DropSettingsEntity)
     private readonly dropSettingsEntityRepository: Repository<DropSettingsEntity>,
     private readonly amqpConnection: AmqpConnection,
-  ) {}
+  ) {
+    this.synchronizeInventory();
+  }
 
   @Cron('0 3 * * MON')
   public async clearBuyOrders() {
@@ -226,8 +228,14 @@ ORDER BY missing DESC,
       try {
         if (Math.random() < dropChance) {
           // We are lucky! drop an item
-          const assetId = await this.pickItemDrop();
-          await this.saveDroppedItem(assetId, matchId, players[i]);
+          const drop = await this.pickItemDrop();
+          await this.saveDroppedItem(
+            drop.asset_id,
+            matchId,
+            players[i],
+            drop.market_hash_name,
+            drop.quality,
+          );
         }
       } catch (e) {
         this.logger.error('Error dropping item!', e);
@@ -237,7 +245,15 @@ ORDER BY missing DESC,
     }
   }
 
-  private async pickItemDrop(): Promise<string | undefined> {
+  private async pickItemDrop(): Promise<
+    | {
+        asset_id: string;
+        quality: ItemQuality;
+        market_hash_name: string;
+        price: number;
+      }
+    | undefined
+  > {
     const randomItem = await this.ds
       .query<
         {
@@ -294,16 +310,18 @@ LIMIT 1;
       return;
     }
 
-    return randomItem.asset_id;
+    return randomItem;
   }
 
   private async saveDroppedItem(
     assetId: string,
     matchId: number,
     steamId: string,
+    marketHashName: string,
+    quality: ItemQuality,
   ) {
     const droppedItem = await this.droppedItemEntityRepository.save(
-      new DroppedItemEntity(assetId, matchId, steamId),
+      new DroppedItemEntity(assetId, matchId, steamId, marketHashName, quality),
     );
     await this.amqpConnection.publish(
       'app.events',

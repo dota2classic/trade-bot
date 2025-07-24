@@ -2,25 +2,25 @@ const fs = require('fs');
 
 const qualities = [
   (Standard = 'Standard'),
-  (Inscribed = 'Inscribed'),
-  (Auspicious = 'Auspicious'),
-  (Genuine = 'Genuine'),
-  (Autographed = 'Autographed'),
-  (Heroic = 'Heroic'),
-  (Frozen = 'Frozen'),
-  (Base = 'Base'),
-  (Cursed = 'Cursed'),
-  (Unusual = 'Unusual'),
-  (Infused = 'Infused'),
-  (Corrupted = 'Corrupted'),
-  (Exalted = 'Exalted'),
-  (Elder = 'Elder'),
-  (Glitter = 'Glitter'),
-  (Gold = 'Gold'),
-  (Holo = 'Holo'),
-  (Legacy = 'Legacy'),
-  (Favored = 'Favored'),
-  (Ascendant = 'Ascendant'),
+  // (Inscribed = 'Inscribed'),
+  // (Auspicious = 'Auspicious'),
+  // (Genuine = 'Genuine'),
+  // (Autographed = 'Autographed'),
+  // (Heroic = 'Heroic'),
+  // (Frozen = 'Frozen'),
+  // (Base = 'Base'),
+  // (Cursed = 'Cursed'),
+  // (Unusual = 'Unusual'),
+  // (Infused = 'Infused'),
+  // (Corrupted = 'Corrupted'),
+  // (Exalted = 'Exalted'),
+  // (Elder = 'Elder'),
+  // (Glitter = 'Glitter'),
+  // (Gold = 'Gold'),
+  // (Holo = 'Holo'),
+  // (Legacy = 'Legacy'),
+  // (Favored = 'Favored'),
+  // (Ascendant = 'Ascendant'),
 ];
 
 const raw = JSON.parse(fs.readFileSync('./items.json', 'utf-8'));
@@ -85,8 +85,8 @@ const s = raw
 fs.writeFileSync('items_wearable.json', JSON.stringify(s, null, 2));
 
 const values = s.flatMap((item) => {
-  return qualities.map((quality) => [item, quality, 0, ''].join(';'));
+  return qualities.map((quality) => [item, quality, 0, '', new Date(Date.now() - 1000 * 60 * 60 * 24 * 60).toISOString()].join(';'));
 });
 
-const header = `market_hash_name;quality;price;type`;
+const header = `market_hash_name;quality;price;type;updated`;
 fs.writeFileSync('test.csv', header + '\n' + values.join('\n'));

@@ -17,7 +17,9 @@ import { ItemDropService } from './service/item-drop.service';
 import SteamMarket, { ECurrencyCode } from '@dota2classic/steam-market';
 import { RabbitMQConfig, RabbitMQModule } from '@golevelup/nestjs-rabbitmq';
 import { RmqController } from './rmq.controller';
-import { TradeController } from './trade.controller';
+import { TradeController } from "./rest/trade.controller";
+import { UserService } from "./service/user.service";
+import { TradeMapper } from "./rest/trade.mapper";
 
 @Module({
   imports: [
@@ -63,6 +65,8 @@ import { TradeController } from './trade.controller';
     TradeOfferService,
     ItemSellService,
     ItemDropService,
+    UserService,
+    TradeMapper,
     {
       provide: Steam,
       useFactory: async (config: ConfigService) => {

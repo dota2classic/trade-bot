@@ -2,11 +2,14 @@ import {
   Column,
   Entity,
   Index,
+  OneToMany,
   PrimaryColumn,
   PrimaryGeneratedColumn,
+  Relation,
   UpdateDateColumn,
 } from 'typeorm';
 import { ItemQuality } from '../constant';
+import { DroppedItemEntity } from './dropped-item.entity';
 
 @Entity('market_item')
 @Index('market_hash_name_quality_unique', ['marketHashName', 'quality'], {
@@ -70,4 +73,7 @@ export class MarketItemEntity {
     default: '',
   })
   smallIcon: string;
+
+  @OneToMany(() => DroppedItemEntity, (t) => t.marketItem)
+  drops: Relation<DroppedItemEntity>[];
 }

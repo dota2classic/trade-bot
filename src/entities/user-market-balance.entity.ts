@@ -12,9 +12,16 @@ export class UserMarketBalanceEntity {
   @Column({
     type: 'int',
     name: 'balance',
+    default: 0,
   })
   balance: number;
 
+  @Column({
+    type: 'text',
+    name: 'trade_link',
+    nullable: true,
+  })
+  tradeLink: string;
 
   constructor(steamId: string, balance: number) {
     this.steamId = steamId;

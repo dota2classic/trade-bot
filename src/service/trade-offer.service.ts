@@ -1,6 +1,6 @@
 import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
-import { ETradeOfferState, TradeOfferStatus } from '../constant';
-import { EOfferFilter } from 'steam-tradeoffer-manager';
+import { DOTA_APPID, ETradeOfferState, TradeOfferStatus } from '../constant';
+import { EOfferFilter, EResult } from 'steam-tradeoffer-manager';
 import CEconItem from 'steamcommunity/classes/CEconItem';
 import TradeOffer from 'steam-tradeoffer-manager/lib/classes/TradeOffer';
 import { Steam } from '../steam';
@@ -12,8 +12,8 @@ import { ItemPriceService } from './item-price.service';
 import { TradeOfferEntity } from '../entities/trade-offer.entity';
 import { TradeOfferItemEntity } from '../entities/trade-offer-item.entity';
 import { UserMarketBalanceEntity } from '../entities/user-market-balance.entity';
-import { Cron, CronExpression } from '@nestjs/schedule';
 import { wait } from '../util/wait';
+import { DroppedItemEntity } from '../entities/dropped-item.entity';
 
 @Injectable()
 export class TradeOfferService implements OnApplicationBootstrap {
@@ -37,7 +37,7 @@ export class TradeOfferService implements OnApplicationBootstrap {
     await this.processOffers();
   }
 
-  @Cron(CronExpression.EVERY_MINUTE)
+  // @Cron(CronExpression.EVERY_MINUTE)
   public async processOffers() {
     try {
       const { sent, received } = await new Promise<{
@@ -148,11 +148,11 @@ export class TradeOfferService implements OnApplicationBootstrap {
       ),
     );
 
-    await this.acceptTradeOffer(offer, marketItems);
+    await this.saveAcceptedTradeOffer(offer, marketItems);
   }
 
   // Called on new accepted trade offer
-  private async acceptTradeOffer(
+  private async saveAcceptedTradeOffer(
     tradeOffer: TradeOffer,
     items: {
       item: CEconItem;
@@ -160,53 +160,100 @@ export class TradeOfferService implements OnApplicationBootstrap {
     }[],
   ) {
     const steamId = tradeOffer.partner.accountid.toString();
-    await this.ds.transaction(async (tx) => {
-      // Create TradeOfferEntity
-      const offer = await tx.save(
-        TradeOfferEntity,
-        new TradeOfferEntity(tradeOffer.id, steamId, TradeOfferStatus.Accepted),
-      );
-
-      // Add traded patch items to it
-      const tradedItems = items.map(
-        (it) =>
-          new TradeOfferItemEntity(
-            offer.id,
-            it.marketPriceItem._hashName,
-            it.marketPriceItem.lowestPrice,
+    await this.ds
+      .transaction(async (tx) => {
+        // Create TradeOfferEntity
+        const offer = await tx.save(
+          TradeOfferEntity,
+          new TradeOfferEntity(
+            tradeOffer.id,
+            steamId,
+            TradeOfferStatus.Accepted,
+            true,
           ),
-      );
-      await tx.save(TradeOfferItemEntity, tradedItems);
+        );
 
-      // Count total traded amount
-      const totalTradedBalance = items.reduce(
-        (a, b) => a + b.marketPriceItem.lowestPrice,
-        0,
-      );
+        // Add traded patch items to it
+        const tradedItems = items.map(
+          (it) =>
+            new TradeOfferItemEntity(
+              offer.id,
+              it.item.assetid.toString(),
+              it.marketPriceItem._hashName,
+              it.marketPriceItem.lowestPrice,
+            ),
+        );
+        await tx.save(TradeOfferItemEntity, tradedItems);
 
-      // Update balance
-      let user: UserMarketBalanceEntity | undefined = await tx
-        .getRepository<UserMarketBalanceEntity>(UserMarketBalanceEntity)
-        .createQueryBuilder('user')
-        .useTransaction(true)
-        .setLock('pessimistic_write')
-        .where('user.steam_id = :steamId', {
-          steamId: tradeOffer.partner.accountid.toString(),
-        })
-        .getOne();
-
-      if (!user) {
-        user = new UserMarketBalanceEntity(
-          tradeOffer.partner.accountid.toString(),
+        // Count total traded amount
+        const totalTradedBalance = items.reduce(
+          (a, b) => a + b.marketPriceItem.lowestPrice,
           0,
         );
-      }
 
-      user.balance += totalTradedBalance;
-      await tx.save(UserMarketBalanceEntity, user);
-      this.logger.log(
-        `Successfully handled trade offer ${offer.id} for ${totalTradedBalance} amount from ${user.steamId}`,
-      );
-    });
+        // Update balance
+        let user: UserMarketBalanceEntity | undefined = await tx
+          .getRepository<UserMarketBalanceEntity>(UserMarketBalanceEntity)
+          .createQueryBuilder('user')
+          .useTransaction(true)
+          .setLock('pessimistic_write')
+          .where('user.steam_id = :steamId', {
+            steamId: tradeOffer.partner.accountid.toString(),
+          })
+          .getOne();
+
+        if (!user) {
+          user = new UserMarketBalanceEntity(
+            tradeOffer.partner.accountid.toString(),
+            0,
+          );
+        }
+
+        user.balance += totalTradedBalance;
+        await tx.save(UserMarketBalanceEntity, user);
+        this.logger.log(
+          `Successfully handled trade offer ${offer.id} for ${totalTradedBalance} amount from ${user.steamId}`,
+        );
+      })
+      .catch((err) => {
+        this.logger.error('There was an issue saving trade offer!', err);
+      });
+  }
+
+  public async createTradeRequest(link: string, items: DroppedItemEntity[]) {
+    const offer = this.steam.trade.createOffer(link);
+
+    // Add items
+    offer.addMyItems(
+      items.map(
+        (item) =>
+          ({
+            assetid: item.assetId,
+            contextid: 2,
+            appid: DOTA_APPID,
+            amount: 1,
+          }) as CEconItem,
+      ),
+    );
+
+    console.log(offer.state);
+
+    const status = await new Promise<'pending' | 'sent'>((resolve, reject) =>
+      offer.send((err, status) => {
+        if (err) {
+          this.logger.error({
+            message: 'Error sending trade request!',
+            cause: err.cause,
+            errorMessage: err.message,
+            errorCode: EResult[err.eresult.toString()],
+          });
+          reject(`Error sending trade request: ${err.eresult}`);
+          return;
+        }
+        resolve(status);
+      }),
+    );
+
+    return offer;
   }
 }

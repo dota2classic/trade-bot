@@ -12,6 +12,11 @@ export class TradeOfferItemEntity {
   @PrimaryGeneratedColumn('increment')
   id: number;
 
+  @Column({
+    name: 'assetid',
+  })
+  assetId: string;
+
   @ManyToOne(() => TradeOfferEntity, (t) => t.items)
   @JoinColumn({
     name: 'offer_id',
@@ -27,7 +32,7 @@ export class TradeOfferItemEntity {
   @Column({
     name: 'market_hash_name',
     default: '',
-    type: "text"
+    type: 'text',
   })
   marketHashName: string;
 
@@ -38,8 +43,14 @@ export class TradeOfferItemEntity {
   })
   price: number;
 
-  constructor(offerId: number, marketHashName: string, price: number) {
+  constructor(
+    offerId: number,
+    assetId: string,
+    marketHashName: string,
+    price: number,
+  ) {
     this.offerId = offerId;
+    this.assetId = assetId;
     this.marketHashName = marketHashName;
     this.price = price;
   }

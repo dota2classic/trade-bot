@@ -44,6 +44,11 @@ export class TradeOfferEntity {
   })
   steamId: string;
 
+  @Column({
+    name: 'incoming',
+  })
+  incoming: boolean;
+
   @CreateDateColumn({
     name: 'created',
     type: 'timestamptz',
@@ -59,9 +64,10 @@ export class TradeOfferEntity {
   @OneToMany(() => TradeOfferItemEntity, (t) => t.offer)
   items: Relation<TradeOfferItemEntity>[];
 
-  constructor(offerId: string, steamId: string, status: TradeOfferStatus) {
+  constructor(offerId: string, steamId: string, status: TradeOfferStatus, incoming: boolean) {
     this.offerId = offerId;
     this.steamId = steamId;
     this.status = status;
+    this.incoming = incoming;
   }
 }
