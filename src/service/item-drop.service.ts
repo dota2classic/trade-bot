@@ -16,6 +16,18 @@ import { DropSettingsEntity } from '../entities/drop-settings.entity';
 import { shuffleArray } from '../util/shuffle';
 import { AmqpConnection } from '@golevelup/nestjs-rabbitmq';
 import { ItemDroppedEvent } from '../gateway/events/item-dropped.event';
+import { BuyOrder } from '@dota2classic/steam-market';
+
+interface ItemToBuy {
+  market_hash_name: string;
+  quality: ItemQuality;
+  missing: number;
+  tier: number;
+
+  expected_stock: number;
+  tier_stock: number;
+  tier_missing: number;
+}
 
 @Injectable()
 export class ItemDropService {
@@ -37,10 +49,9 @@ export class ItemDropService {
     private readonly dropSettingsEntityRepository: Repository<DropSettingsEntity>,
     private readonly amqpConnection: AmqpConnection,
   ) {
-    this.synchronizeInventory();
   }
 
-  @Cron('0 3 * * MON')
+  @Cron(CronExpression.EVERY_6_HOURS)
   public async clearBuyOrders() {
     const listings = await this.steam.market.myListings(0, 100);
     for (let buyOrder of listings.buyOrders) {
@@ -100,16 +111,22 @@ export class ItemDropService {
   public async replenishStock() {
     const listed = await this.steam.market.myListings(0, 100);
     const alreadyListed = listed.buyOrders.map((t) => t.hashName);
-    const items = await this.getWeightedItems().then((t) =>
-      t
-        .filter((t) => t.missing > 0)
-        .filter(
-          (wi) =>
-            !alreadyListed.includes(
-              toMarketHashNameParts(wi.market_hash_name, wi.quality),
-            ),
-        ),
+    const items = await this.getWeightedItemV2(listed.buyOrders).then((t) =>
+      t.filter(
+        (wi) =>
+          !alreadyListed.includes(
+            toMarketHashNameParts(wi.market_hash_name, wi.quality),
+          ),
+      ),
     );
+
+    if (items.length === 0) {
+      this.logger.log(
+        'Stock is fully replenished or waiting to buy. All good!',
+      );
+      return;
+    }
+
     const toPurchase = items[0];
 
     const hashName = toMarketHashNameParts(
@@ -123,7 +140,7 @@ export class ItemDropService {
     const fairPrice = Math.floor(marketItem.lowestPrice * 0.97);
 
     this.logger.log(
-      `Restock ${hashName}: ${toPurchase.stock} / ${toPurchase.expected_stock}. Buying one for ${fairPrice}`,
+      `Restock tier ${toPurchase.tier} with ${hashName}: ${toPurchase.tier_stock} / ${toPurchase.expected_stock}. Buying one for ${fairPrice}`,
     );
 
     await this.itemPriceService.updateItemMarketData(
@@ -152,58 +169,117 @@ export class ItemDropService {
     }
   }
 
-  public async getWeightedItems() {
-    return this.ds.query<
-      {
-        market_hash_name: string;
-        quality: ItemQuality;
-        price: number;
-        weight: number;
-        stock: number;
-        expected_stock: number;
-        missing: number;
-      }[]
-    >(`WITH purchasables AS
-  (SELECT DISTINCT mi.market_hash_name,
-                   mi.quality,
-                   mi.price
-   FROM market_item mi
-   WHERE mi.quantity > 3
-     AND mi.price < 50000),
-     inverse_sum AS
-  (SELECT sum(1.0 / p.price) AS total_inverse
-   FROM purchasables p),
-     inventory_counts AS
-  (SELECT ii.market_hash_name,
-          ii.quality,
-          count(*) AS stock
-   FROM inventory_item ii
-   WHERE ii.tradable or ii.trade_cooldown_until is not null
-   GROUP BY ii.market_hash_name,
-            ii.quality),
-     combined AS
-  (SELECT p.market_hash_name,
-          p.quality,
-          p.price,
-          (1.0 / p.price) / i.total_inverse AS weight,
-          coalesce(ic.stock, 0) AS stock
-   FROM purchasables p
-   CROSS JOIN inverse_sum i
-   LEFT JOIN inventory_counts ic ON ic.market_hash_name = p.market_hash_name
-   AND ic.quality = p.quality),
-     total_inventory AS
-  (SELECT 200 AS total_stock)
-SELECT c.market_hash_name,
-       c.quality,
-       c.price,
-       c.weight,
-       c.stock,
-       ceil(t.total_stock * c.weight) AS expected_stock,
-       greatest(ceil(t.total_stock * c.weight) - c.stock, 0) AS missing
-FROM combined c
-CROSS JOIN total_inventory t
-ORDER BY missing DESC,
-         weight DESC;`);
+  private async getWeightedItemV2(buyOrders: BuyOrder[]): Promise<ItemToBuy[]> {
+    interface Tier {
+      from: number;
+      to: number;
+      weight: number;
+      tier: number;
+      listedCount: number;
+    }
+    const desiredStock = 200;
+
+    const tiers: Omit<Tier, 'tier' | 'listedCount'>[] = [
+      { from: 0, to: 100, weight: 0.6 },
+      { from: 100, to: 500, weight: 0.2 },
+      { from: 500, to: 1000, weight: 0.1 },
+      { from: 1000, to: 5000, weight: 0.07 },
+      { from: 5000, to: 15000, weight: 0.025 },
+      { from: 15000, to: 999999, weight: 0.005 },
+    ];
+
+    const tiersWithCounts: Tier[] = tiers.map((tier, index) => ({
+      ...tier,
+      tier: index + 1,
+      listedCount: buyOrders.filter(
+        (t) => t.price >= tier.from && t.price < tier.to,
+      ).length,
+    }));
+
+    const tiersBuyingNow = tiersWithCounts
+      .map((t) => `(${t.tier}, ${t.listedCount})`)
+      .join(', ');
+
+    const tierValues = tiersWithCounts
+      .map((t) => `(${t.tier}, ${t.from}, ${t.to}, ${t.weight})`)
+      .join(', ');
+
+    this.logger.log(`Item tiers with listing count: ${tiersBuyingNow}`);
+
+    const q = `
+      -- WITH WEIGHTS
+with tier_buying_now as (
+  select * from (values
+    ${tiersBuyingNow}
+  ) as t(tier, buying_now)
+), price_ladder as (
+  select * from (values
+    ${tierValues}
+  ) as t(tier, min_price, max_price, target_weight)
+),
+purchasables as (
+  select distinct market_hash_name, quality, price
+  from market_item
+  where quantity >= 20 and price < 50000 and quality != 'Corrupted' -- corrupted usually overprice shit
+),
+inventory_counts as (
+  select market_hash_name, quality, count(*) as stock
+  from inventory_item
+  where tradable or trade_cooldown_until is not null
+  group by market_hash_name, quality
+),
+items_with_tiers as (
+  select p.*, l.tier, l.target_weight
+  from purchasables p
+  join price_ladder l on p.price >= l.min_price and p.price < l.max_price
+),
+tier_stock as (
+  select tier, sum(coalesce(ic.stock, 0)) as stock
+  from items_with_tiers i
+  left join inventory_counts ic
+    on ic.market_hash_name = i.market_hash_name
+    and ic.quality = i.quality
+  group by tier
+),
+total_stock as (
+  select ${desiredStock} as value
+),
+final as (
+  select
+    i.market_hash_name,
+    i.quality,
+    i.price,
+    i.tier,
+    i.target_weight,
+    coalesce(tier_s.stock, 0) as tier_stock,
+    coalesce(ic.stock, 0) as stock,
+    ts.value as total_stock,
+    ts.value * i.target_weight as expected_tier_stock,
+    greatest(ts.value * i.target_weight - coalesce(tier_s.stock, 0) - coalesce(tbn.buying_now, 0), 0) as tier_missing,
+    greatest(ts.value * i.target_weight - coalesce(tier_s.stock, 0) - coalesce(tbn.buying_now, 0), 0) - coalesce(ic.stock, 0) as item_priority
+  from items_with_tiers i
+  left join inventory_counts ic on ic.market_hash_name = i.market_hash_name and ic.quality = i.quality
+  cross join total_stock ts
+  left join tier_stock tier_s on tier_s.tier = i.tier
+  left join tier_buying_now tbn on tbn.tier = i.tier
+)
+select
+  market_hash_name,
+  quality,
+  price,
+  tier,
+  target_weight::float,
+  stock,
+  tier_stock::int,
+  ceil(expected_tier_stock)::int as expected_stock,
+  tier_missing::int,
+  round(greatest(item_priority, 0))::int as missing
+from final
+where greatest(item_priority, 0) > 0
+order by tier_missing::float / greatest(1, expected_tier_stock) desc, missing desc, tier asc, random();
+    `;
+
+    return await this.ds.query<ItemToBuy[]>(q);
   }
 
   public async onMatchFinished(
