@@ -145,6 +145,7 @@ export class TradeOfferService implements OnApplicationBootstrap {
           item.marketPriceItem.firstAsset?.icon_url_large,
           item.marketPriceItem.firstAsset?.icon_url,
           item.marketPriceItem.quantity,
+          false
         ),
       ),
     );

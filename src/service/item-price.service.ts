@@ -101,6 +101,7 @@ export class ItemPriceService {
           undefined,
           t.iconUrl,
           t.quantity,
+          true,
         ),
       ),
     );
@@ -188,6 +189,7 @@ export class ItemPriceService {
     largeIcon: string | undefined,
     smallIcon: string | undefined,
     quantity: number,
+    upsert: boolean,
   ) {
     let itemName = marketHashName;
     const first = marketHashName.split(' ')[0];
@@ -198,18 +200,35 @@ export class ItemPriceService {
       quality = ItemQuality.Standard;
     }
 
-    await this.marketItemEntityRepository.upsert(
-      {
-        price,
-        type,
-        quantity,
-        largeIcon,
-        smallIcon,
-        updated: new Date(),
-        marketHashName: itemName,
-        quality: quality,
-      },
-      ['marketHashName', 'quality'],
-    );
+    if (upsert) {
+      await this.marketItemEntityRepository.upsert(
+        {
+          price,
+          type,
+          quantity,
+          largeIcon,
+          smallIcon,
+          updated: new Date(),
+          marketHashName: itemName,
+          quality: quality,
+        },
+        ['marketHashName', 'quality'],
+      );
+    } else {
+      await this.marketItemEntityRepository.update(
+        {
+          marketHashName: itemName,
+          quality: quality,
+        },
+        {
+          price,
+          type,
+          quantity,
+          largeIcon,
+          smallIcon,
+          updated: new Date(),
+        },
+      );
+    }
   }
 }

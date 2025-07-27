@@ -156,6 +156,7 @@ export class ItemDropService {
       marketItem.firstAsset?.icon_url_large,
       marketItem.firstAsset?.icon_url,
       marketItem.quantity,
+      true
     );
 
     const r = await this.rl.enqueue(() => this.steam.market.createBuyOrder(DOTA_APPID, {
@@ -186,13 +187,14 @@ export class ItemDropService {
     const desiredStock = 200;
 
     const tiers: Omit<Tier, 'tier' | 'listedCount'>[] = [
-      { from: 0, to: 100, weight: 0.6 },
-      { from: 100, to: 500, weight: 0.2 },
-      { from: 500, to: 1000, weight: 0.1 },
-      { from: 1000, to: 5000, weight: 0.07 },
-      { from: 5000, to: 15000, weight: 0.025 },
-      { from: 15000, to: 999999, weight: 0.005 },
-    ];
+      { from: 0, to: 100, weight: 0.9 },
+      { from: 100, to: 500, weight: 0.08 },
+      { from: 500, to: 1000, weight: 0.01 },
+      { from: 1000, to: 5000, weight: 0.007 },
+      { from: 5000, to: 15000, weight: 0.0025 },
+      { from: 15000, to: 20000, weight: 0.0005 },
+    ]
+
 
     const tiersWithCounts: Tier[] = tiers.map((tier, index) => ({
       ...tier,
