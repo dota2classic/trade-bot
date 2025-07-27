@@ -20,6 +20,7 @@ import { RmqController } from './rmq.controller';
 import { TradeController } from "./rest/trade.controller";
 import { UserService } from "./service/user.service";
 import { TradeMapper } from "./rest/trade.mapper";
+import { RateLimiter } from "./service/rate-limiter.service";
 
 @Module({
   imports: [
@@ -67,6 +68,7 @@ import { TradeMapper } from "./rest/trade.mapper";
     ItemDropService,
     UserService,
     TradeMapper,
+    RateLimiter,
     {
       provide: Steam,
       useFactory: async (config: ConfigService) => {

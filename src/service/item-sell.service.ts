@@ -11,7 +11,7 @@ import { wait } from '../util/wait';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { isTradable } from '../util/isTradable';
 import { CEconItem } from '../steamexts';
-import { getCookie } from "../util/getCookie";
+import { RateLimiter } from './rate-limiter.service';
 
 @Injectable()
 export class ItemSellService implements OnApplicationBootstrap {
@@ -25,10 +25,10 @@ export class ItemSellService implements OnApplicationBootstrap {
     private readonly marketItemEntityRepository: Repository<MarketItemEntity>,
     private readonly config: ConfigService,
     private readonly itemPriceService: ItemPriceService,
+    private readonly rl: RateLimiter,
   ) {}
 
-  async onApplicationBootstrap() {
-  }
+  async onApplicationBootstrap() {}
 
   @Cron(CronExpression.EVERY_HOUR)
   public async cancelBadSales() {
@@ -36,7 +36,9 @@ export class ItemSellService implements OnApplicationBootstrap {
     for (let i = 0; i < 10; i++) {
       const start = i * perPage;
       try {
-        const listings = await this.steam.market.myListings(start, perPage);
+        const listings = await this.rl.enqueue(() =>
+          this.steam.market.myListings(start, perPage),
+        );
         if (!listings.success) {
           this.logger.warn('Error getting listings!');
           break;
@@ -61,11 +63,11 @@ export class ItemSellService implements OnApplicationBootstrap {
             `Removing outdated listing at ${listing.listingDate.toISOString()}`,
           );
           try {
-            await this.steam.market.cancelSellOrder(listing.listingId);
+            await this.rl.enqueue(() =>
+              this.steam.market.cancelSellOrder(listing.listingId),
+            );
           } catch (e) {
             this.logger.warn("Couldn't cancel listing!", e);
-          } finally {
-            await wait(5000);
           }
         }
 
@@ -132,12 +134,14 @@ export class ItemSellService implements OnApplicationBootstrap {
     );
 
     try {
-      const result = await this.steam.market.createSellOrder(DOTA_APPID, {
-        price: sellPrice / 100,
-        amount: 1,
-        assetId: item.assetid as number,
-        contextId: 2,
-      });
+      const result = await this.rl.enqueue(() =>
+        this.steam.market.createSellOrder(DOTA_APPID, {
+          price: sellPrice / 100,
+          amount: 1,
+          assetId: item.assetid as number,
+          contextId: 2,
+        }),
+      );
       if (result.success) {
         this.logger.log('Successfully listed item for sale');
       } else {

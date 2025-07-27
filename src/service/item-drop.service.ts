@@ -17,6 +17,7 @@ import { shuffleArray } from '../util/shuffle';
 import { AmqpConnection } from '@golevelup/nestjs-rabbitmq';
 import { ItemDroppedEvent } from '../gateway/events/item-dropped.event';
 import { BuyOrder } from '@dota2classic/steam-market';
+import { RateLimiter } from './rate-limiter.service';
 
 interface ItemToBuy {
   market_hash_name: string;
@@ -42,21 +43,24 @@ export class ItemDropService {
   constructor(
     private readonly ds: DataSource,
     private readonly steam: Steam,
+    private readonly rl: RateLimiter,
     private readonly itemPriceService: ItemPriceService,
     @InjectRepository(DroppedItemEntity)
     private readonly droppedItemEntityRepository: Repository<DroppedItemEntity>,
     @InjectRepository(DropSettingsEntity)
     private readonly dropSettingsEntityRepository: Repository<DropSettingsEntity>,
     private readonly amqpConnection: AmqpConnection,
-  ) {
-  }
+  ) {}
 
   @Cron(CronExpression.EVERY_6_HOURS)
   public async clearBuyOrders() {
-    const listings = await this.steam.market.myListings(0, 100);
+    const listings = await this.rl.enqueue(() =>
+      this.steam.market.myListings(0, 100),
+    );
     for (let buyOrder of listings.buyOrders) {
-      await this.steam.market.cancelBuyOrder(buyOrder.buyOrderId);
-      await wait(5000);
+      await this.rl.enqueue(() =>
+        this.steam.market.cancelBuyOrder(buyOrder.buyOrderId),
+      );
       this.logger.log(`Cancelled buy order ${buyOrder.hashName}`);
     }
   }
@@ -109,7 +113,9 @@ export class ItemDropService {
 
   @Cron(CronExpression.EVERY_MINUTE)
   public async replenishStock() {
-    const listed = await this.steam.market.myListings(0, 100);
+    const listed = await this.rl.enqueue(() =>
+      this.steam.market.myListings(0, 100),
+    );
     const alreadyListed = listed.buyOrders.map((t) => t.hashName);
     const items = await this.getWeightedItemV2(listed.buyOrders).then((t) =>
       t.filter(
@@ -152,11 +158,11 @@ export class ItemDropService {
       marketItem.quantity,
     );
 
-    const r = await this.steam.market.createBuyOrder(DOTA_APPID, {
+    const r = await this.rl.enqueue(() => this.steam.market.createBuyOrder(DOTA_APPID, {
       marketHashName: hashName,
       price: fairPrice * 100, // it will divide to 100
       amount: 1,
-    });
+    }));
     if (r.success) {
       if (Number.isNaN(r.buyOrderId)) {
         console.log('Bad buy?', r);

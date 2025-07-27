@@ -9,6 +9,7 @@ import { Steam } from '../steam';
 import { MarketItemSelector } from '../util/marketHashToName';
 import { SearchResult } from '@dota2classic/steam-market';
 import { Cron, CronExpression } from '@nestjs/schedule';
+import { RateLimiter } from './rate-limiter.service';
 
 @Injectable()
 export class ItemPriceService {
@@ -18,6 +19,7 @@ export class ItemPriceService {
     private readonly steam: Steam,
     @InjectRepository(MarketItemEntity)
     private readonly marketItemEntityRepository: Repository<MarketItemEntity>,
+    private readonly rl: RateLimiter,
   ) {}
 
   public async priceCheck2(item: MarketItemEntity) {
@@ -32,11 +34,13 @@ export class ItemPriceService {
     const pageSize = 10;
     const allListings: SearchResult[] = [];
     for (let i = 0; i < 5; i++) {
-      const result = await this.steam.market.search(DOTA_APPID, {
-        query: item.marketHashName,
-        start: i * pageSize,
-        count: pageSize,
-      });
+      const result = await this.rl.enqueue(() =>
+        this.steam.market.search(DOTA_APPID, {
+          query: item.marketHashName,
+          start: i * pageSize,
+          count: pageSize,
+        }),
+      );
       if (!result.success) {
         this.logger.warn('Issue resolving qualities', result);
       }
@@ -132,16 +136,19 @@ export class ItemPriceService {
   };
 
   public getMarketItemByName = async (name: string): Promise<CMarketItem> => {
-    return new Promise((resolve, reject) =>
-      this.steam.community.getMarketItem(
-        DOTA_APPID,
-        name,
-        Currency.RUB,
-        (err, res) => {
-          if (err) reject(err);
-          else resolve(res as CMarketItem);
-        },
-      ),
+    return this.rl.enqueue(
+      () =>
+        new Promise((resolve, reject) =>
+          this.steam.community.getMarketItem(
+            DOTA_APPID,
+            name,
+            Currency.RUB,
+            (err, res) => {
+              if (err) reject(err);
+              else resolve(res as CMarketItem);
+            },
+          ),
+        ),
     );
   };
 
