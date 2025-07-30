@@ -7,14 +7,21 @@ import { Steam } from '../steam';
 import { CMarketItem } from '../steamexts';
 import { MarketItemEntity } from '../entities/market-item.entity';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, In, Repository } from 'typeorm';
 import { ItemPriceService } from './item-price.service';
 import { TradeOfferEntity } from '../entities/trade-offer.entity';
 import { TradeOfferItemEntity } from '../entities/trade-offer-item.entity';
 import { UserMarketBalanceEntity } from '../entities/user-market-balance.entity';
 import { wait } from '../util/wait';
 import { DroppedItemEntity } from '../entities/dropped-item.entity';
-import { Cron, CronExpression } from "@nestjs/schedule";
+import { Cron, CronExpression } from '@nestjs/schedule';
+import { FindOptionsWhere } from 'typeorm/find-options/FindOptionsWhere';
+import { InventoryItemEntity } from '../entities/inventory-item.entity';
+
+interface PricedItem {
+  item: CEconItem;
+  marketPriceItem: CMarketItem;
+}
 
 @Injectable()
 export class TradeOfferService implements OnApplicationBootstrap {
@@ -31,11 +38,13 @@ export class TradeOfferService implements OnApplicationBootstrap {
     private readonly tradeOfferEntityRepository: Repository<TradeOfferEntity>,
     @InjectRepository(TradeOfferItemEntity)
     private readonly tradeOfferItemEntityRepository: Repository<TradeOfferItemEntity>,
+    @InjectRepository(DroppedItemEntity)
+    private readonly droppedItemEntityRepository: Repository<DroppedItemEntity>,
     private readonly ds: DataSource,
   ) {}
 
   async onApplicationBootstrap() {
-    // await this.processOffers();
+    await this.processOffers();
   }
 
   @Cron(CronExpression.EVERY_MINUTE)
@@ -47,7 +56,7 @@ export class TradeOfferService implements OnApplicationBootstrap {
       }>((resolve, reject) => {
         this.steam.trade.getOffers(
           EOfferFilter.All,
-          new Date(Date.now() - 1000 * 60 * 60 * 24 * 21), // 21 days
+          new Date(Date.now() - 1000 * 60 * 60 * 24 * 14), // 14 days
           async (err, sent, received) => {
             if (err) {
               reject(err);
@@ -61,12 +70,14 @@ export class TradeOfferService implements OnApplicationBootstrap {
         );
       });
 
+      const offers = [...received, ...sent];
+
       await Promise.all(
-        received.map((offer) => {
+        offers.map(async (offer) => {
           if (this.tradeOfferProcessMap.get(offer.id)) return;
           try {
             this.tradeOfferProcessMap.set(offer.id, true);
-            this.handleOffer(offer);
+            await this.handleAnyOffer(offer);
           } catch (e) {
             this.logger.warn(
               `There was an issue processing trade offer ${offer.id}`,
@@ -76,25 +87,112 @@ export class TradeOfferService implements OnApplicationBootstrap {
           }
         }),
       );
+
+      await this.updateDroppedItemStatus(offers);
     } catch (e) {
       this.logger.error('There was an issue processing offers', e);
     }
   }
 
-  private async handleOffer(offer: TradeOffer) {
+  private async handleAnyOffer(offer: TradeOffer) {
+    if (offer.isOurOffer) {
+      await this.handleOutcomingOffer(offer);
+    } else {
+      await this.handleIncomingOffer(offer);
+    }
+  }
+
+  private async handleOutcomingOffer(offer: TradeOffer) {
+    if (offer.state === ETradeOfferState.Countered) {
+      // this.logger.warn(`Declined counter offer from ${offer.partner.accountid}`)
+      return;
+    }
+
+    if (offer.state === ETradeOfferState.Active) {
+      // Check if it expired
+
+      const offerExpirationTime = 1000 * 60 * 5; // 5 minutes
+      // if (offer.created.getTime() + 1000 * 60 * 60 * 4 < Date.now()) {
+      if (offer.created.getTime() + offerExpirationTime < Date.now()) {
+        this.logger.warn(
+          'Outcoming trade offer is taking too long: expired. Cancelling',
+        );
+        await this.declineTradeOffer(offer);
+        return;
+      }
+    }
+
+    if (offer.state !== ETradeOfferState.Accepted) {
+      return;
+    }
+
+    // Already processed?
+    const alreadyHandled = await this.tradeOfferEntityRepository.exists({
+      where: {
+        offerId: offer.id,
+      },
+    });
+    if (alreadyHandled) {
+      // this.logger.warn('Trade is already saved: we skip it');
+      return;
+    }
+    this.logger.log('Newly accepted tradeoffer huh!');
+
+    const itemsWithPrices = await this.priceCheckItems(offer.itemsToGive);
+
+    const tradeOffer = await this.ds.transaction(async (tx) => {
+      // Delete dropped items because they are transferred
+      await tx.delete(DroppedItemEntity, {
+        assetId: In(offer.itemsToGive.map((t) => t.assetid)),
+      } satisfies FindOptionsWhere<DroppedItemEntity>);
+
+      // Delete items from inventory
+      await tx.delete(InventoryItemEntity, {
+        assetId: In(offer.itemsToGive.map((t) => t.assetid)),
+      } satisfies FindOptionsWhere<InventoryItemEntity>);
+
+      let tradeOffer = new TradeOfferEntity(
+        offer.id,
+        offer.partner.accountid.toString(),
+        TradeOfferStatus.Accepted,
+        false,
+      );
+      tradeOffer.tradeId = offer.tradeID;
+      tradeOffer = await tx.save(TradeOfferEntity, tradeOffer);
+
+      // Save trade offer items
+      await tx.save(
+        TradeOfferItemEntity,
+        itemsWithPrices.map(
+          (t) =>
+            new TradeOfferItemEntity(
+              tradeOffer.id,
+              t.item.assetid.toString(),
+              t.marketPriceItem._hashName,
+              t.marketPriceItem.lowestPrice,
+            ),
+        ),
+      );
+
+      return tradeOffer;
+    });
+
+    this.logger.log(
+      `Successfully saved sent offer! ${tradeOffer.id} to ${tradeOffer.steamId} of ${offer.itemsToGive.length} items`,
+    );
+  }
+
+  private async handleIncomingOffer(offer: TradeOffer) {
     if (offer.state === ETradeOfferState.Active) {
       // Donation?
       if (offer.itemsToGive.length === 0) {
-        const status = await new Promise((resolve, reject) =>
-          offer.accept((err, response) => {
-            if (err) {
-              reject(err);
-              return;
-            }
-            resolve(response);
-          }),
-        );
+        await this.acceptTradeOffer(offer);
         this.logger.log(`Handled active donation offer: status is ${status}`);
+        return;
+      } else {
+        // We do not give items in received orders
+        await this.declineTradeOffer(offer);
+        this.logger.log('Declined incoming offer to give our shit!');
         return;
       }
     }
@@ -118,22 +216,7 @@ export class TradeOfferService implements OnApplicationBootstrap {
     this.logger.log(
       `Handling new accepted offer of ${offer.itemsToReceive.length} items from ${offer.partner.accountid}!`,
     );
-    const marketItems: { item: CEconItem; marketPriceItem: CMarketItem }[] = [];
-
-    // Price check them
-    for (let cEconItem of offer.itemsToReceive) {
-      try {
-        marketItems.push({
-          item: cEconItem,
-          marketPriceItem: await this.itemPriceService.getMarketItem(cEconItem),
-        });
-        this.logger.log(`Price checked item ${cEconItem.market_hash_name}`);
-      } catch (e) {
-        this.logger.warn('There was an issue price checking item!', e);
-      } finally {
-        await wait(3000);
-      }
-    }
+    const marketItems = await this.priceCheckItems(offer.itemsToReceive);
 
     // Update prices of our patch items
     await Promise.all(
@@ -145,7 +228,7 @@ export class TradeOfferService implements OnApplicationBootstrap {
           item.marketPriceItem.firstAsset?.icon_url_large,
           item.marketPriceItem.firstAsset?.icon_url,
           item.marketPriceItem.quantity,
-          false
+          false,
         ),
       ),
     );
@@ -238,8 +321,6 @@ export class TradeOfferService implements OnApplicationBootstrap {
       ),
     );
 
-    console.log(offer.state);
-
     const status = await new Promise<'pending' | 'sent'>((resolve, reject) =>
       offer.send((err, status) => {
         if (err) {
@@ -257,5 +338,96 @@ export class TradeOfferService implements OnApplicationBootstrap {
     );
 
     return offer;
+  }
+
+  private async priceCheckItems(items: CEconItem[]): Promise<PricedItem[]> {
+    const marketItems: PricedItem[] = [];
+
+    // Price check them
+    for (let cEconItem of items) {
+      try {
+        marketItems.push({
+          item: cEconItem,
+          marketPriceItem: await this.itemPriceService.getMarketItem(cEconItem),
+        });
+        this.logger.log(`Price checked item ${cEconItem.market_hash_name}`);
+      } catch (e) {
+        this.logger.warn('There was an issue price checking item!', e);
+      } finally {
+        await wait(3000);
+      }
+    }
+    return marketItems;
+  }
+
+  private async acceptTradeOffer(offer: TradeOffer) {
+    return new Promise((resolve, reject) =>
+      offer.accept((err, response) => {
+        if (err) {
+          reject(err);
+          return;
+        }
+        resolve(response);
+      }),
+    );
+  }
+
+  private async declineTradeOffer(offer: TradeOffer) {
+    await new Promise((resolve, reject) =>
+      offer.decline((err) => {
+        if (err) {
+          reject(err);
+          return;
+        }
+        resolve(undefined);
+      }),
+    );
+  }
+
+  private async updateDroppedItemStatus(offers: TradeOffer[]) {
+    const droppedItemStatus = new Map<string, string | null>();
+
+    for (const offer of offers) {
+      for (const item of offer.itemsToGive) {
+        const isAlreadySet = droppedItemStatus.get(item.assetid.toString());
+
+        if (isAlreadySet) continue;
+
+        const isActiveTrade = [
+          ETradeOfferState.Active,
+          ETradeOfferState.InEscrow,
+        ].includes(offer.state);
+
+        const isResolvedTrade = [
+          ETradeOfferState.Invalid,
+          ETradeOfferState.InvalidItems,
+          ETradeOfferState.Canceled,
+          ETradeOfferState.CanceledBySecondFactor,
+          ETradeOfferState.Declined,
+          ETradeOfferState.Expired,
+        ].includes(offer.state);
+
+        if (isActiveTrade) {
+          droppedItemStatus.set(item.assetid.toString(), offer.id);
+        } else if (isResolvedTrade) {
+          droppedItemStatus.set(item.assetid.toString(), null);
+        }
+      }
+    }
+
+    const droppedItemStatusArray = Array.from(droppedItemStatus.entries());
+
+    const values = droppedItemStatusArray
+      .map(
+        ([assetId, tradeOfferId]) =>
+          `('${assetId}', ${tradeOfferId ? `'${tradeOfferId}'` : 'NULL'})`,
+      )
+      .join(',');
+    const queryInsert = await this.ds.query(`
+UPDATE dropped_item AS di
+SET active_trade_offer_id = upd_di.active_trade_offer_id
+FROM (VALUES ${values}) AS upd_di(assetid, active_trade_offer_id)
+WHERE di.assetid = upd_di.assetid;
+    `);
   }
 }

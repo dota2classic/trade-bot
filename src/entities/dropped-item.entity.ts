@@ -14,7 +14,7 @@ import { ItemQuality } from '../constant';
 @Entity('dropped_item')
 export class DroppedItemEntity {
   @PrimaryColumn({
-    name: 'assetid',
+    name: 'assetid'
   })
   assetId: string;
 
@@ -58,6 +58,13 @@ export class DroppedItemEntity {
     name: 'quality',
   })
   quality: ItemQuality;
+
+  // Id of an active steam trade offer where this item participates
+  @Column({
+    name: "active_trade_offer_id",
+    nullable: true,
+  })
+  activeTradeOfferId: string;
 
   constructor(
     assetId: string,

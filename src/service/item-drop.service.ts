@@ -8,7 +8,6 @@ import { marketHashToSelectorName } from '../util/marketHashToName';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { toMarketHashNameParts } from '../util/marketHashName';
 import { ItemPriceService } from './item-price.service';
-import { wait } from '../util/wait';
 import { DroppedItemEntity } from '../entities/dropped-item.entity';
 import { InjectRepository } from '@nestjs/typeorm';
 import { MatchmakingMode } from '../gateway/shared-types/matchmaking-mode';
@@ -18,6 +17,8 @@ import { AmqpConnection } from '@golevelup/nestjs-rabbitmq';
 import { ItemDroppedEvent } from '../gateway/events/item-dropped.event';
 import { BuyOrder } from '@dota2classic/steam-market';
 import { RateLimiter } from './rate-limiter.service';
+import { ItemDropTierEntity } from '../entities/item-drop-tier.entity';
+import { weightedRandom } from '../util/pickWeightedRandom';
 
 interface ItemToBuy {
   market_hash_name: string;
@@ -49,8 +50,12 @@ export class ItemDropService {
     private readonly droppedItemEntityRepository: Repository<DroppedItemEntity>,
     @InjectRepository(DropSettingsEntity)
     private readonly dropSettingsEntityRepository: Repository<DropSettingsEntity>,
+    @InjectRepository(ItemDropTierEntity)
+    private readonly itemDropTierEntityRepository: Repository<ItemDropTierEntity>,
     private readonly amqpConnection: AmqpConnection,
-  ) {}
+  ) {
+
+  }
 
   @Cron(CronExpression.EVERY_6_HOURS)
   public async clearBuyOrders() {
@@ -156,14 +161,16 @@ export class ItemDropService {
       marketItem.firstAsset?.icon_url_large,
       marketItem.firstAsset?.icon_url,
       marketItem.quantity,
-      true
+      true,
     );
 
-    const r = await this.rl.enqueue(() => this.steam.market.createBuyOrder(DOTA_APPID, {
-      marketHashName: hashName,
-      price: fairPrice * 100, // it will divide to 100
-      amount: 1,
-    }));
+    const r = await this.rl.enqueue(() =>
+      this.steam.market.createBuyOrder(DOTA_APPID, {
+        marketHashName: hashName,
+        price: fairPrice * 100, // it will divide to 100
+        amount: 1,
+      }),
+    );
     if (r.success) {
       if (Number.isNaN(r.buyOrderId)) {
         console.log('Bad buy?', r);
@@ -184,23 +191,23 @@ export class ItemDropService {
       tier: number;
       listedCount: number;
     }
-    const desiredStock = 200;
+    const desiredStock = await this.dropSettingsEntityRepository
+      .findOne({
+        where: {
+          id: Not(IsNull()),
+        },
+      })
+      .then((t) => t.desiredStock);
 
-    const tiers: Omit<Tier, 'tier' | 'listedCount'>[] = [
-      { from: 0, to: 100, weight: 0.9 },
-      { from: 100, to: 500, weight: 0.08 },
-      { from: 500, to: 1000, weight: 0.01 },
-      { from: 1000, to: 5000, weight: 0.007 },
-      { from: 5000, to: 15000, weight: 0.0025 },
-      { from: 15000, to: 20000, weight: 0.0005 },
-    ]
-
+    const tiers = await this.itemDropTierEntityRepository.find();
 
     const tiersWithCounts: Tier[] = tiers.map((tier, index) => ({
-      ...tier,
+      from: tier.minPrice,
+      to: tier.maxPrice,
+      weight: tier.weight,
       tier: index + 1,
       listedCount: buyOrders.filter(
-        (t) => t.price >= tier.from && t.price < tier.to,
+        (t) => t.price >= tier.minPrice && t.price < tier.maxPrice,
       ).length,
     }));
 
@@ -287,7 +294,7 @@ where greatest(item_priority, 0) > 0
 order by tier_missing::float / greatest(1, expected_tier_stock) desc, missing desc, tier asc, random();
     `;
 
-    return await this.ds.query<ItemToBuy[]>(q);
+    return this.ds.query<ItemToBuy[]>(q);
   }
 
   public async onMatchFinished(
@@ -320,6 +327,9 @@ order by tier_missing::float / greatest(1, expected_tier_stock) desc, missing de
             drop.market_hash_name,
             drop.quality,
           );
+          this.logger.log(
+            `Item dropped: ${drop.market_hash_name} for ${players[i]}`,
+          );
         }
       } catch (e) {
         this.logger.error('Error dropping item!', e);
@@ -338,6 +348,12 @@ order by tier_missing::float / greatest(1, expected_tier_stock) desc, missing de
       }
     | undefined
   > {
+    const tiers = await this.itemDropTierEntityRepository.find();
+
+    const chosenTier = weightedRandom(tiers);
+
+    this.logger.log(`Weighted random tier: ${chosenTier.minPrice} <= price < ${chosenTier.maxPrice}`)
+
     const randomItem = await this.ds
       .query<
         {
@@ -357,7 +373,7 @@ order by tier_missing::float / greatest(1, expected_tier_stock) desc, missing de
    LEFT JOIN market_item mi ON mi.market_hash_name = ii.market_hash_name
    AND mi.quality = ii.quality
    LEFT JOIN dropped_item di ON di.assetid = ii.assetid
-   WHERE di IS NULL
+   WHERE di IS NULL AND ii.tradable AND mi.price >= $1 and mi.price < $2
    ORDER BY 1),
      inventory_with_weights AS
   (SELECT *,
@@ -369,8 +385,7 @@ order by tier_missing::float / greatest(1, expected_tier_stock) desc, missing de
    FROM inventory_with_weights),
      cumulative AS
   (SELECT *,
-          SUM(weight) OVER (
-                            ORDER BY asset_id) AS cumulative_weight
+          SUM(weight) OVER (ORDER BY asset_id) AS cumulative_weight
    FROM weight_totals),
      threshold AS
   (SELECT total_weight * random() AS threshold
@@ -386,6 +401,7 @@ WHERE cumulative_weight >= threshold
 ORDER BY cumulative_weight
 LIMIT 1;
     `,
+        [chosenTier.minPrice, chosenTier.maxPrice],
       )
       .then((t) => t[0]);
 

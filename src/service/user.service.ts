@@ -1,7 +1,7 @@
 import { HttpException, Injectable, Logger } from '@nestjs/common';
 import { UserMarketBalanceEntity } from '../entities/user-market-balance.entity';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, In, Repository } from 'typeorm';
 import { Steam } from '../steam';
 import { DroppedItemEntity } from '../entities/dropped-item.entity';
 import { MarketItemEntity } from '../entities/market-item.entity';
@@ -54,6 +54,7 @@ export class UserService {
       .where('di.steam_id = :steamId', {
         steamId: steamId,
       })
+      .andWhere('di.active_trade_offer_id is null')
       .andWhere('di.created >= now() - :expiration::interval', {
         expiration: '7 days',
       })
@@ -61,11 +62,24 @@ export class UserService {
 
     this.logger.log(`User ${steamId}: ${droppedItems.length} to trade`);
 
+    if (droppedItems.length === 0) {
+      throw 'No items available for trade!';
+    }
+
     // then, create trade request
     try {
       const offer = await this.tradeOfferService.createTradeRequest(
         user.tradeLink,
         droppedItems,
+      );
+
+      await this.droppedItemEntityRepository.update(
+        {
+          assetId: In(droppedItems.map((t) => t.assetId)),
+        },
+        {
+          activeTradeOfferId: offer.id,
+        },
       );
       this.logger.log(`Trade offer created ${offer.id}.`);
     } catch (e) {
