@@ -42,5 +42,5 @@ jobs:
         uses: docker/build-push-action@v6.7.0
         with:
           push: true
-          tags: dota2classic/matchmaking:gameserver
+          tags: dota2classic/tradebot:latest
 
