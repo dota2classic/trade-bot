@@ -78,7 +78,7 @@ export class ItemPriceService {
           marketHashName: match[2],
           sellPrice: t.sellPrice,
           quantity: t.sellListings,
-          iconUrl: t['iconUrl'],
+          iconUrl: t.assetDescription.iconUrl
         };
       })
       .filter(Boolean);

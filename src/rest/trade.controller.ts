@@ -3,7 +3,6 @@ import {
   Controller,
   Delete,
   Get,
-  HttpException,
   Param,
   Patch,
   Post,
@@ -17,7 +16,7 @@ import { TradeMapper } from './trade.mapper';
 import { UpdateUserDto } from './trade.dto';
 import { UserService } from '../service/user.service';
 import { DroppedItemEntity } from '../entities/dropped-item.entity';
-import { Steam } from "../steam";
+import { Steam } from '../steam';
 
 @Controller('trade')
 @ApiTags('trade')
@@ -60,7 +59,10 @@ export class TradeController {
 
   @Get('drops/:steamId')
   public async getDrops(@Param('steamId') steamId: string) {
-    const drops = await this.droppedItemEntityRepository.findBy({ steamId });
+    const drops = await this.droppedItemEntityRepository.find({
+      where: { steamId },
+      relations: ['marketItem'],
+    });
 
     return drops.map(this.mapper.mapDrop);
   }
@@ -68,8 +70,7 @@ export class TradeController {
   // Ask for a trade request
   @Post('drops/:steamId/claim')
   public async claimDrops(@Param('steamId') steamId: string) {
-    await this.userService.claimDrops(steamId)
-
+    await this.userService.claimDrops(steamId);
   }
 
   @Delete('drops/:steamId/discard/:assetId')
