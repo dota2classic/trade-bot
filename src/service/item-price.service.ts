@@ -54,6 +54,7 @@ export class ItemPriceService {
       sellPrice: number;
       quantity: number;
       iconUrl: string;
+      type: string;
     })[] = allListings
       .map((t) => {
         const hn = t.assetDescription.marketHashName;
@@ -78,7 +79,8 @@ export class ItemPriceService {
           marketHashName: match[2],
           sellPrice: t.sellPrice,
           quantity: t.sellListings,
-          iconUrl: t.assetDescription.iconUrl
+          iconUrl: t.assetDescription.iconUrl,
+          type: t.assetDescription.type
         };
       })
       .filter(Boolean);
@@ -97,7 +99,7 @@ export class ItemPriceService {
         this.updateItemMarketData(
           `${t.quality} ${t.marketHashName}`,
           t.sellPrice,
-          undefined,
+          t.type,
           undefined,
           t.iconUrl,
           t.quantity,

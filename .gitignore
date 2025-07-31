@@ -3,7 +3,7 @@
 /node_modules
 /build
 2fa/*
-
+temps
 config.yaml
 # Logs
 logs
