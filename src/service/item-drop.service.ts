@@ -191,13 +191,6 @@ export class ItemDropService {
       tier: number;
       listedCount: number;
     }
-    const desiredStock = await this.dropSettingsEntityRepository
-      .findOne({
-        where: {
-          id: Not(IsNull()),
-        },
-      })
-      .then((t) => t.desiredStock);
 
     const tiers = await this.itemDropTierEntityRepository.find();
 
@@ -215,10 +208,6 @@ export class ItemDropService {
       .map((t) => `(${t.tier}, ${t.listedCount})`)
       .join(', ');
 
-    const tierValues = tiersWithCounts
-      .map((t) => `(${t.tier}, ${t.from}, ${t.to}, ${t.weight})`)
-      .join(', ');
-
     this.logger.log(`Item tiers with listing count: ${tiersBuyingNow}`);
 
     const q = `
@@ -228,9 +217,15 @@ with tier_buying_now as (
     ${tiersBuyingNow}
   ) as t(tier, buying_now)
 ), price_ladder as (
-  select * from (values
-    ${tierValues}
-  ) as t(tier, min_price, max_price, target_weight)
+  select
+    row_number() over () as tier,
+    price_min as min_price,
+    price_max as max_price,
+    weight as target_weight
+  from
+	  item_drop_tier
+  order by
+	  price_min asc
 ),
 purchasables as (
   select distinct market_hash_name, quality, price
@@ -256,9 +251,6 @@ tier_stock as (
     and ic.quality = i.quality
   group by tier
 ),
-total_stock as (
-  select ${desiredStock} as value
-),
 final as (
   select
     i.market_hash_name,
@@ -268,13 +260,13 @@ final as (
     i.target_weight,
     coalesce(tier_s.stock, 0) as tier_stock,
     coalesce(ic.stock, 0) as stock,
-    ts.value as total_stock,
-    ts.value * i.target_weight as expected_tier_stock,
-    greatest(ts.value * i.target_weight - coalesce(tier_s.stock, 0) - coalesce(tbn.buying_now, 0), 0) as tier_missing,
-    greatest(ts.value * i.target_weight - coalesce(tier_s.stock, 0) - coalesce(tbn.buying_now, 0), 0) - coalesce(ic.stock, 0) as item_priority
+    ids.desired_stock as total_stock,
+    ids.desired_stock * i.target_weight as expected_tier_stock,
+    greatest(ids.desired_stock * i.target_weight - coalesce(tier_s.stock, 0) - coalesce(tbn.buying_now, 0), 0) as tier_missing,
+    greatest(ids.desired_stock * i.target_weight - coalesce(tier_s.stock, 0) - coalesce(tbn.buying_now, 0), 0) - coalesce(ic.stock, 0) as item_priority
   from items_with_tiers i
   left join inventory_counts ic on ic.market_hash_name = i.market_hash_name and ic.quality = i.quality
-  cross join total_stock ts
+  cross join item_drop_settings ids
   left join tier_stock tier_s on tier_s.tier = i.tier
   left join tier_buying_now tbn on tbn.tier = i.tier
 )
