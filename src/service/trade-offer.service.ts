@@ -17,6 +17,8 @@ import { DroppedItemEntity } from '../entities/dropped-item.entity';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { FindOptionsWhere } from 'typeorm/find-options/FindOptionsWhere';
 import { InventoryItemEntity } from '../entities/inventory-item.entity';
+import { AmqpConnection } from '@golevelup/nestjs-rabbitmq';
+import { TradeOfferExpiredEvent } from '../gateway/events/trade-offer-expired.event';
 
 interface PricedItem {
   item: CEconItem;
@@ -41,6 +43,7 @@ export class TradeOfferService implements OnApplicationBootstrap {
     @InjectRepository(DroppedItemEntity)
     private readonly droppedItemEntityRepository: Repository<DroppedItemEntity>,
     private readonly ds: DataSource,
+    private readonly amqpConnection: AmqpConnection,
   ) {}
 
   async onApplicationBootstrap() {
@@ -111,13 +114,18 @@ export class TradeOfferService implements OnApplicationBootstrap {
     if (offer.state === ETradeOfferState.Active) {
       // Check if it expired
 
-      const offerExpirationTime = 1000 * 60 * 5; // 5 minutes
+      const offerExpirationTime = 1000 * 60 * 1; // 1 minutes
       // if (offer.created.getTime() + 1000 * 60 * 60 * 4 < Date.now()) {
       if (offer.created.getTime() + offerExpirationTime < Date.now()) {
         this.logger.warn(
           'Outcoming trade offer is taking too long: expired. Cancelling',
         );
         await this.declineTradeOffer(offer);
+        await this.amqpConnection.publish(
+          'app.events',
+          TradeOfferExpiredEvent.name,
+          new TradeOfferExpiredEvent(offer.partner.accountid.toString()),
+        );
         return;
       }
     }

@@ -1,4 +1,4 @@
-import { ItemQuality } from '../constant';
+import { ItemQuality, ItemRarity } from "../constant";
 import { ApiProperty } from '@nestjs/swagger';
 
 export class UserDto {
@@ -20,11 +20,17 @@ export class MarketItemDto {
   price: number;
 
   icon: string;
+  type: string;
+
+  @ApiProperty({ enum: ItemRarity, enumName: 'ItemRarity' })
+  rarity: ItemRarity
 }
 
 export class DroppedItemDto {
+  assetId: string;
   matchId: number;
   droppedAt: string;
   expires: string;
   item: MarketItemDto;
+  activeTradeId?: string;
 }

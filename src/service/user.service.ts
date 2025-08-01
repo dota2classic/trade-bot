@@ -82,6 +82,7 @@ export class UserService {
         },
       );
       this.logger.log(`Trade offer created ${offer.id}.`);
+      return offer.id;
     } catch (e) {
       this.logger.error('There was an issue creating trade request!', e);
       throw e;

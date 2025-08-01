@@ -13,6 +13,17 @@ export enum TradeOfferStatus {
   Escrow = 'escrow',
 }
 
+export enum ItemRarity {
+  Common = 'Common',
+  Rare = 'Rare',
+  Uncommon = 'Uncommon',
+  Mythical = 'Mythical',
+  Immortal = 'Immortal',
+  Legendary = 'Legendary',
+  Arcana = 'Arcana',
+  Ancient = 'Ancient',
+}
+
 export enum ItemQuality {
   Standard = 'Standard',
   Inscribed = 'Inscribed',

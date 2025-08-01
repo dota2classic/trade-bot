@@ -10,6 +10,7 @@ import { MarketItemSelector } from '../util/marketHashToName';
 import { SearchResult } from '@dota2classic/steam-market';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { RateLimiter } from './rate-limiter.service';
+import { wait } from "../util/wait";
 
 @Injectable()
 export class ItemPriceService {
@@ -70,7 +71,7 @@ export class ItemPriceService {
           );
           return null;
         }
-
+        
         return {
           quality:
             match[1] === ''
@@ -115,6 +116,7 @@ export class ItemPriceService {
 
   @Cron(CronExpression.EVERY_MINUTE)
   public async priceCheck() {
+    await wait(5000)
     const indexed = await this.marketItemEntityRepository.count({
       where: {
         quantity: MoreThan(0),

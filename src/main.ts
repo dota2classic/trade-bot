@@ -22,9 +22,12 @@ async function bootstrap() {
 
   await app.listen(6100);
 
-  // await app
-  //   .get(ItemDropService)
-  //   .onMatchFinished(MatchmakingMode.UNRANKED, 12345, ['116514945']);
+  // for (let i = 0; i < 1; i++) {
+  //   await app
+  //     .get(ItemDropService)
+  //     .onMatchFinished(MatchmakingMode.UNRANKED, 12345 + i, ['116514945']);
+  // }
+
   // await app.get(UserService).claimDrops('116514945');
 }
 bootstrap();

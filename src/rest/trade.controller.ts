@@ -62,6 +62,9 @@ export class TradeController {
     const drops = await this.droppedItemEntityRepository.find({
       where: { steamId },
       relations: ['marketItem'],
+      order: {
+        created: 'DESC',
+      },
     });
 
     return drops.map(this.mapper.mapDrop);
@@ -70,7 +73,7 @@ export class TradeController {
   // Ask for a trade request
   @Post('drops/:steamId/claim')
   public async claimDrops(@Param('steamId') steamId: string) {
-    await this.userService.claimDrops(steamId);
+    return this.userService.claimDrops(steamId);
   }
 
   @Delete('drops/:steamId/discard/:assetId')

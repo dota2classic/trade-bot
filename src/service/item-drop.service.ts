@@ -418,7 +418,7 @@ LIMIT 1;
     await this.amqpConnection.publish(
       'app.events',
       ItemDroppedEvent.name,
-      new ItemDroppedEvent(matchId, steamId, assetId),
+      new ItemDroppedEvent(matchId, steamId, assetId, marketHashName),
     );
     this.logger.log('Published drop item event');
   }
