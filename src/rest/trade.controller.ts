@@ -22,6 +22,8 @@ import { TradeOfferEntity } from "../entities/trade-offer.entity";
 @Controller('trade')
 @ApiTags('trade')
 export class TradeController {
+
+  private logger = new Logger(TradeController.name)
   constructor(
     private readonly steam: Steam,
     private readonly mapper: TradeMapper,
@@ -111,5 +113,6 @@ export class TradeController {
       steamId,
       assetId,
     });
+    this.logger.warn(`Player ${steamId} discarded drop ${assetId}`)
   }
 }
