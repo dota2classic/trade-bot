@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { DataSource, IsNull, Not, Repository } from 'typeorm';
 import { Steam } from '../steam';
-import { DOTA_APPID, ItemQuality } from '../constant';
+import { DOTA_APPID, ItemQuality, ItemRarity } from "../constant";
 import { CEconItem } from '../steamexts';
 import { InventoryItemEntity } from '../entities/inventory-item.entity';
 import { marketHashToSelectorName } from '../util/marketHashToName';
@@ -14,7 +14,10 @@ import { MatchmakingMode } from '../gateway/shared-types/matchmaking-mode';
 import { DropSettingsEntity } from '../entities/drop-settings.entity';
 import { shuffleArray } from '../util/shuffle';
 import { AmqpConnection } from '@golevelup/nestjs-rabbitmq';
-import { ItemDroppedEvent } from '../gateway/events/item-dropped.event';
+import {
+  ItemDroppedEvent,
+  MarketItemDto,
+} from '../gateway/events/item-dropped.event';
 import { BuyOrder } from '@dota2classic/steam-market';
 import { RateLimiter } from './rate-limiter.service';
 import { ItemDropTierEntity } from '../entities/item-drop-tier.entity';
@@ -53,9 +56,7 @@ export class ItemDropService {
     @InjectRepository(ItemDropTierEntity)
     private readonly itemDropTierEntityRepository: Repository<ItemDropTierEntity>,
     private readonly amqpConnection: AmqpConnection,
-  ) {
-
-  }
+  ) {}
 
   @Cron(CronExpression.EVERY_6_HOURS)
   public async clearBuyOrders() {
@@ -318,6 +319,8 @@ order by tier_missing::float / greatest(1, expected_tier_stock) desc, missing de
             players[i],
             drop.market_hash_name,
             drop.quality,
+            drop.type,
+            drop.small_icon,
           );
           this.logger.log(
             `Item dropped: ${drop.market_hash_name} for ${players[i]}`,
@@ -337,6 +340,9 @@ order by tier_missing::float / greatest(1, expected_tier_stock) desc, missing de
         quality: ItemQuality;
         market_hash_name: string;
         price: number;
+        type: string;
+        large_icon: string;
+        small_icon: string;
       }
     | undefined
   > {
@@ -344,7 +350,9 @@ order by tier_missing::float / greatest(1, expected_tier_stock) desc, missing de
 
     const chosenTier = weightedRandom(tiers);
 
-    this.logger.log(`Weighted random tier: ${chosenTier.minPrice} <= price < ${chosenTier.maxPrice}`)
+    this.logger.log(
+      `Weighted random tier: ${chosenTier.minPrice} <= price < ${chosenTier.maxPrice}`,
+    );
 
     const randomItem = await this.ds
       .query<
@@ -353,6 +361,9 @@ order by tier_missing::float / greatest(1, expected_tier_stock) desc, missing de
           quality: ItemQuality;
           market_hash_name: string;
           price: number;
+          type: string;
+          large_icon: string;
+          small_icon: string;
         }[]
       >(
         `
@@ -360,7 +371,10 @@ order by tier_missing::float / greatest(1, expected_tier_stock) desc, missing de
   (SELECT ii.assetid AS asset_id,
           ii.quality,
           ii.market_hash_name,
-          mi.price
+          mi.price,
+          mi.type,
+          mi.large_icon,
+          mi.small_icon
    FROM inventory_item ii
    LEFT JOIN market_item mi ON mi.market_hash_name = ii.market_hash_name
    AND mi.quality = ii.quality
@@ -386,7 +400,10 @@ order by tier_missing::float / greatest(1, expected_tier_stock) desc, missing de
 SELECT asset_id,
        quality,
        market_hash_name,
-       price
+       price,
+       type,
+       large_icon,
+       small_icon
 FROM cumulative,
      threshold
 WHERE cumulative_weight >= threshold
@@ -411,14 +428,24 @@ LIMIT 1;
     steamId: string,
     marketHashName: string,
     quality: ItemQuality,
+    type: string,
+    icon: string,
   ) {
     const droppedItem = await this.droppedItemEntityRepository.save(
       new DroppedItemEntity(assetId, matchId, steamId, marketHashName, quality),
     );
+
+    let rarity = "";
+    try {
+      rarity = type.split(' ')[0]
+    }catch (e) {
+      rarity = ItemRarity.Common;
+    }
+
     await this.amqpConnection.publish(
       'app.events',
       ItemDroppedEvent.name,
-      new ItemDroppedEvent(matchId, steamId, assetId, marketHashName),
+      new ItemDroppedEvent(matchId, steamId, assetId, new MarketItemDto(marketHashName, quality.toString(), 0, icon, type, rarity)),
     );
     this.logger.log('Published drop item event');
   }

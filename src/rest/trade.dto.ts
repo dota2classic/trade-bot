@@ -34,3 +34,17 @@ export class DroppedItemDto {
   item: MarketItemDto;
   activeTradeId?: string;
 }
+
+
+export class TradeOfferDto {
+  id: string;
+  amount: number;
+  itemCount: number;
+  incoming: boolean;
+  createdAt: string;
+}
+
+
+export class PurchaseDto {
+  amount: number;
+}

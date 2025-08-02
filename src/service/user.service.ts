@@ -88,4 +88,33 @@ export class UserService {
       throw e;
     }
   }
+
+  public async purchase(steamId: string, amount: number) {
+    await this.ds
+      .transaction(async (tx) => {
+        // Update balance
+        let user: UserMarketBalanceEntity | undefined = await tx
+          .getRepository<UserMarketBalanceEntity>(UserMarketBalanceEntity)
+          .createQueryBuilder('user')
+          .useTransaction(true)
+          .setLock('pessimistic_write')
+          .where('user.steam_id = :steamId', {
+            steamId: steamId,
+          })
+          .getOne();
+
+        if (user.balance < amount) {
+          throw 'Not enough money!';
+        }
+
+        user.balance -= amount;
+        await tx.save(UserMarketBalanceEntity, user);
+        this.logger.log(
+          `Successfully purchased something for ${amount} rubles`,
+        );
+      })
+      .catch((err) => {
+        this.logger.error('There was an issue purchasing something!', err);
+      });
+  }
 }

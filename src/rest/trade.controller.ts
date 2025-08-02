@@ -13,10 +13,11 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { MarketItemEntity } from '../entities/market-item.entity';
 import { UserMarketBalanceEntity } from '../entities/user-market-balance.entity';
 import { TradeMapper } from './trade.mapper';
-import { UpdateUserDto } from './trade.dto';
+import { PurchaseDto, UpdateUserDto } from "./trade.dto";
 import { UserService } from '../service/user.service';
 import { DroppedItemEntity } from '../entities/dropped-item.entity';
 import { Steam } from '../steam';
+import { TradeOfferEntity } from "../entities/trade-offer.entity";
 
 @Controller('trade')
 @ApiTags('trade')
@@ -31,6 +32,8 @@ export class TradeController {
     private readonly userMarketBalanceEntityRepository: Repository<UserMarketBalanceEntity>,
     @InjectRepository(DroppedItemEntity)
     private readonly droppedItemEntityRepository: Repository<DroppedItemEntity>,
+    @InjectRepository(TradeOfferEntity)
+    private readonly tradeOfferEntityRepository: Repository<TradeOfferEntity>,
   ) {}
 
   @Get('user/:steamId')
@@ -57,6 +60,23 @@ export class TradeController {
     return this.getUser(steamId);
   }
 
+  @Get('user/:steamId/offers')
+  public async getOfferHistory(
+    @Param('steamId') steamId: string
+  ) {
+    const offers = await this.tradeOfferEntityRepository.find({
+      where: {
+        steamId
+      },
+      relations: ['items'],
+      order: {
+        created: "DESC"
+      }
+    });
+
+    return offers.map(this.mapper.mapOffer)
+  }
+
   @Get('drops/:steamId')
   public async getDrops(@Param('steamId') steamId: string) {
     const drops = await this.droppedItemEntityRepository.find({
@@ -68,6 +88,12 @@ export class TradeController {
     });
 
     return drops.map(this.mapper.mapDrop);
+  }
+
+  // Ask for a trade request
+  @Post('user/:steamId/purchase')
+  public async purchase(@Param('steamId') steamId: string, @Body() purchase: PurchaseDto) {
+    return this.userService.purchase(steamId, purchase.amount)
   }
 
   // Ask for a trade request
