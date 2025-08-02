@@ -23,7 +23,7 @@ async function bootstrap() {
   // for (let i = 0; i < 1; i++) {
   //   await app
   //     .get(ItemDropService)
-  //     .onMatchFinished(MatchmakingMode.UNRANKED, 12345 + i, ['116514945']);
+  //     .onMatchFinished(MatchmakingMode.UNRANKED, 44671, ['116514945']);
   // }
 
 

@@ -118,8 +118,7 @@ export class TradeOfferService implements OnApplicationBootstrap {
     if (offer.state === ETradeOfferState.Active) {
       // Check if it expired
 
-      const offerExpirationTime = 1000 * 60 * 1; // 1 minutes
-      // if (offer.created.getTime() + 1000 * 60 * 60 * 4 < Date.now()) {
+      const offerExpirationTime = 1000 * 60 * 60; // 1 hour
       if (offer.created.getTime() + offerExpirationTime < Date.now()) {
         this.logger.warn(
           'Outcoming trade offer is taking too long: expired. Cancelling',
