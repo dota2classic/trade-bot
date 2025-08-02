@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { DataSource, IsNull, Not, Repository } from 'typeorm';
 import { Steam } from '../steam';
-import { DOTA_APPID, ItemQuality, ItemRarity } from "../constant";
+import { DOTA_APPID, ItemQuality, ItemRarity } from '../constant';
 import { CEconItem } from '../steamexts';
 import { InventoryItemEntity } from '../entities/inventory-item.entity';
 import { marketHashToSelectorName } from '../util/marketHashToName';
@@ -22,6 +22,7 @@ import { BuyOrder } from '@dota2classic/steam-market';
 import { RateLimiter } from './rate-limiter.service';
 import { ItemDropTierEntity } from '../entities/item-drop-tier.entity';
 import { weightedRandom } from '../util/pickWeightedRandom';
+import { ConfigService } from '@nestjs/config';
 
 interface ItemToBuy {
   market_hash_name: string;
@@ -56,10 +57,12 @@ export class ItemDropService {
     @InjectRepository(ItemDropTierEntity)
     private readonly itemDropTierEntityRepository: Repository<ItemDropTierEntity>,
     private readonly amqpConnection: AmqpConnection,
+    private readonly config: ConfigService,
   ) {}
 
   @Cron(CronExpression.EVERY_6_HOURS)
   public async clearBuyOrders() {
+    if (!this.config.get('trade.scrape')) return;
     const listings = await this.rl.enqueue(() =>
       this.steam.market.myListings(0, 100),
     );
@@ -73,6 +76,7 @@ export class ItemDropService {
 
   @Cron(CronExpression.EVERY_10_MINUTES)
   public async synchronizeInventory() {
+    if (!this.config.get('trade.scrape')) return;
     const res = await new Promise<CEconItem[]>((resolve, reject) => {
       this.steam.trade.getInventoryContents(
         DOTA_APPID,
@@ -119,6 +123,8 @@ export class ItemDropService {
 
   @Cron(CronExpression.EVERY_MINUTE)
   public async replenishStock() {
+    if(!this.config.get('trade.scrape')) return;
+
     const listed = await this.rl.enqueue(() =>
       this.steam.market.myListings(0, 100),
     );
@@ -435,17 +441,29 @@ LIMIT 1;
       new DroppedItemEntity(assetId, matchId, steamId, marketHashName, quality),
     );
 
-    let rarity = "";
+    let rarity = '';
     try {
-      rarity = type.split(' ')[0]
-    }catch (e) {
+      rarity = type.split(' ')[0];
+    } catch (e) {
       rarity = ItemRarity.Common;
     }
 
     await this.amqpConnection.publish(
       'app.events',
       ItemDroppedEvent.name,
-      new ItemDroppedEvent(matchId, steamId, assetId, new MarketItemDto(marketHashName, quality.toString(), 0, icon, type, rarity)),
+      new ItemDroppedEvent(
+        matchId,
+        steamId,
+        assetId,
+        new MarketItemDto(
+          marketHashName,
+          quality.toString(),
+          0,
+          icon,
+          type,
+          rarity,
+        ),
+      ),
     );
     this.logger.log('Published drop item event');
   }

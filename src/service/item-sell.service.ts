@@ -32,6 +32,8 @@ export class ItemSellService implements OnApplicationBootstrap {
 
   @Cron(CronExpression.EVERY_HOUR)
   public async cancelBadSales() {
+    if(!this.config.get('trade.scrape')) return;
+
     const perPage = 100;
     for (let i = 0; i < 10; i++) {
       const start = i * perPage;
@@ -84,6 +86,8 @@ export class ItemSellService implements OnApplicationBootstrap {
 
   @Cron(CronExpression.EVERY_MINUTE)
   public async trySellOutdatedItems() {
+    if(!this.config.get('trade.scrape')) return;
+
     // TODO: make this request our db not inventory
     const res = await new Promise<CEconItem[]>((resolve, reject) => {
       this.steam.trade.getInventoryContents(

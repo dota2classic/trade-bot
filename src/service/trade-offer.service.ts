@@ -19,6 +19,7 @@ import { FindOptionsWhere } from 'typeorm/find-options/FindOptionsWhere';
 import { InventoryItemEntity } from '../entities/inventory-item.entity';
 import { AmqpConnection } from '@golevelup/nestjs-rabbitmq';
 import { TradeOfferExpiredEvent } from '../gateway/events/trade-offer-expired.event';
+import { ConfigService } from "@nestjs/config";
 
 interface PricedItem {
   item: CEconItem;
@@ -44,6 +45,7 @@ export class TradeOfferService implements OnApplicationBootstrap {
     private readonly droppedItemEntityRepository: Repository<DroppedItemEntity>,
     private readonly ds: DataSource,
     private readonly amqpConnection: AmqpConnection,
+    private readonly config: ConfigService
   ) {}
 
   async onApplicationBootstrap() {
@@ -52,6 +54,8 @@ export class TradeOfferService implements OnApplicationBootstrap {
 
   @Cron(CronExpression.EVERY_MINUTE)
   public async processOffers() {
+    if(!this.config.get('trade.scrape')) return;
+
     try {
       const { sent, received } = await new Promise<{
         sent: TradeOffer[];
