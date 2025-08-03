@@ -228,7 +228,7 @@ with tier_buying_now as (
     row_number() over () as tier,
     price_min as min_price,
     price_max as max_price,
-    weight as target_weight
+    weight  / (select sum(weight) from item_drop_tier) as target_weight
   from
 	  item_drop_tier
   order by
