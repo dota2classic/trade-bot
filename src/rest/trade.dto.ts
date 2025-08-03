@@ -48,3 +48,38 @@ export class TradeOfferDto {
 export class PurchaseDto {
   amount: number;
 }
+
+
+export class DropTierDto {
+  minPrice: number;
+  maxPrice: number;
+  id: number;
+  weight: number;
+}
+
+export class UpdateDropTierDto {
+  minPrice?: number;
+  maxPrice?: number;
+  weight?: number;
+}
+
+
+export class CreateDropTierDto {
+  minPrice: number;
+  maxPrice: number;
+  weight: number;
+}
+
+
+export class DropSettingsDto {
+  baseDropChance: number;
+  subsequentDropChance: number;
+  desiredStock: number;
+}
+
+
+export class UpdateDropSettingsDto {
+  baseDropChance?: number;
+  subsequentDropChance?: number;
+  desiredStock?: number;
+}

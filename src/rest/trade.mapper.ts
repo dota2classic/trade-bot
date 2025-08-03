@@ -1,15 +1,16 @@
 import { Injectable } from '@nestjs/common';
 import {
-  DroppedItemDto,
+  DroppedItemDto, DropTierDto,
   MarketItemDto,
   TradeOfferDto,
-  UserDto,
-} from './trade.dto';
+  UserDto
+} from "./trade.dto";
 import { UserMarketBalanceEntity } from '../entities/user-market-balance.entity';
 import { DroppedItemEntity } from '../entities/dropped-item.entity';
 import { MarketItemEntity } from '../entities/market-item.entity';
 import { ItemRarity } from '../constant';
 import { TradeOfferEntity } from '../entities/trade-offer.entity';
+import { ItemDropTierEntity } from "../entities/item-drop-tier.entity";
 
 @Injectable()
 export class TradeMapper {
@@ -58,4 +59,12 @@ export class TradeMapper {
     amount: offer.items.reduce((a, b) => a + b.price, 0),
     createdAt: offer.created.toISOString(),
   });
+
+
+  public mapTier = (tier: ItemDropTierEntity): DropTierDto => ({
+    id: tier.id,
+    minPrice: tier.minPrice,
+    maxPrice: tier.maxPrice,
+    weight: tier.weight,
+  })
 }

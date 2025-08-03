@@ -2,28 +2,38 @@ import {
   Body,
   Controller,
   Delete,
-  Get, Logger,
+  Get,
+  Logger,
   Param,
+  ParseIntPipe,
   Patch,
-  Post
-} from "@nestjs/common";
+  Post,
+} from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
-import { Repository } from 'typeorm';
+import { IsNull, Not, Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import { MarketItemEntity } from '../entities/market-item.entity';
 import { UserMarketBalanceEntity } from '../entities/user-market-balance.entity';
 import { TradeMapper } from './trade.mapper';
-import { PurchaseDto, UpdateUserDto } from "./trade.dto";
+import {
+  CreateDropTierDto,
+  DropSettingsDto,
+  PurchaseDto,
+  UpdateDropSettingsDto,
+  UpdateDropTierDto,
+  UpdateUserDto,
+} from './trade.dto';
 import { UserService } from '../service/user.service';
 import { DroppedItemEntity } from '../entities/dropped-item.entity';
 import { Steam } from '../steam';
-import { TradeOfferEntity } from "../entities/trade-offer.entity";
+import { TradeOfferEntity } from '../entities/trade-offer.entity';
+import { ItemDropTierEntity } from '../entities/item-drop-tier.entity';
+import { DropSettingsEntity } from '../entities/drop-settings.entity';
 
 @Controller('trade')
 @ApiTags('trade')
 export class TradeController {
-
-  private logger = new Logger(TradeController.name)
+  private logger = new Logger(TradeController.name);
   constructor(
     private readonly steam: Steam,
     private readonly mapper: TradeMapper,
@@ -36,6 +46,10 @@ export class TradeController {
     private readonly droppedItemEntityRepository: Repository<DroppedItemEntity>,
     @InjectRepository(TradeOfferEntity)
     private readonly tradeOfferEntityRepository: Repository<TradeOfferEntity>,
+    @InjectRepository(ItemDropTierEntity)
+    private readonly itemDropTierEntityRepository: Repository<ItemDropTierEntity>,
+    @InjectRepository(DropSettingsEntity)
+    private readonly dropSettingsEntityRepository: Repository<DropSettingsEntity>,
   ) {}
 
   @Get('user/:steamId')
@@ -63,20 +77,18 @@ export class TradeController {
   }
 
   @Get('user/:steamId/offers')
-  public async getOfferHistory(
-    @Param('steamId') steamId: string
-  ) {
+  public async getOfferHistory(@Param('steamId') steamId: string) {
     const offers = await this.tradeOfferEntityRepository.find({
       where: {
-        steamId
+        steamId,
       },
       relations: ['items'],
       order: {
-        created: "DESC"
-      }
+        created: 'DESC',
+      },
     });
 
-    return offers.map(this.mapper.mapOffer)
+    return offers.map(this.mapper.mapOffer);
   }
 
   @Get('drops/:steamId')
@@ -94,8 +106,11 @@ export class TradeController {
 
   // Ask for a trade request
   @Post('user/:steamId/purchase')
-  public async purchase(@Param('steamId') steamId: string, @Body() purchase: PurchaseDto) {
-    return this.userService.purchase(steamId, purchase.amount)
+  public async purchase(
+    @Param('steamId') steamId: string,
+    @Body() purchase: PurchaseDto,
+  ) {
+    return this.userService.purchase(steamId, purchase.amount);
   }
 
   // Ask for a trade request
@@ -113,6 +128,73 @@ export class TradeController {
       steamId,
       assetId,
     });
-    this.logger.warn(`Player ${steamId} discarded drop ${assetId}`)
+    this.logger.warn(`Player ${steamId} discarded drop ${assetId}`);
+  }
+
+  // Tier CRUD
+  @Get('tiers')
+  public async getDropTiers() {
+    return this.itemDropTierEntityRepository
+      .find()
+      .then((all) => all.map(this.mapper.mapTier));
+  }
+
+  @Post('tiers')
+  public async createDropTier(@Body() dto: CreateDropTierDto) {
+    // Validate
+    const allTiers = await this.itemDropTierEntityRepository.find();
+    const collision =
+      allTiers.findIndex(
+        (t) =>
+          (dto.minPrice >= t.minPrice && dto.minPrice <= t.maxPrice) ||
+          (dto.maxPrice >= t.minPrice && dto.maxPrice <= t.maxPrice),
+      ) !== -1;
+    if (collision) {
+      throw 'Collision!';
+    }
+    await this.itemDropTierEntityRepository.save(dto);
+  }
+
+  @Patch('tiers/:id')
+  public async updateTier(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateDropTierDto,
+  ) {
+    await this.itemDropTierEntityRepository.update(
+      {
+        id,
+      },
+      {
+        ...dto,
+      },
+    );
+  }
+
+  @Delete('tiers/:id')
+  public async deleteTier(@Param('id', ParseIntPipe) id: number) {
+    await this.itemDropTierEntityRepository.delete({
+      id,
+    });
+  }
+
+  @Get('settings')
+  public async getSettings(): Promise<DropSettingsDto> {
+    return this.dropSettingsEntityRepository.findOne({
+      where: {
+        id: Not(IsNull()),
+      },
+    });
+  }
+
+  @Patch('settings')
+  public async updateSettings(@Body() dto: UpdateDropSettingsDto) {
+    await this.dropSettingsEntityRepository.update(
+      {
+        id: Not(IsNull()),
+      },
+      {
+        ...dto,
+      },
+    );
   }
 }
