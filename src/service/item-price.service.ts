@@ -139,16 +139,16 @@ export class ItemPriceService {
     await Promise.all(toCheck.map((item) => this.priceCheck2(item)));
   }
 
-  public getMarketItem = async (item: CEconItem): Promise<CMarketItem> => {
-    return this.getMarketItemByName(item.market_hash_name);
+  public getMarketItem = async (item: CEconItem, appId = DOTA_APPID): Promise<CMarketItem> => {
+    return this.getMarketItemByName(item.market_hash_name, appId);
   };
 
-  public getMarketItemByName = async (name: string): Promise<CMarketItem> => {
+  public getMarketItemByName = async (name: string, appId = DOTA_APPID): Promise<CMarketItem> => {
     return this.rl.enqueue(
       () =>
         new Promise((resolve, reject) =>
           this.steam.community.getMarketItem(
-            DOTA_APPID,
+            appId,
             name,
             Currency.RUB,
             (err, res) => {

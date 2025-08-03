@@ -359,7 +359,7 @@ export class TradeOfferService implements OnApplicationBootstrap {
       try {
         marketItems.push({
           item: cEconItem,
-          marketPriceItem: await this.itemPriceService.getMarketItem(cEconItem),
+          marketPriceItem: await this.itemPriceService.getMarketItem(cEconItem, cEconItem.appid),
         });
         this.logger.log(`Price checked item ${cEconItem.market_hash_name}`);
       } catch (e) {
