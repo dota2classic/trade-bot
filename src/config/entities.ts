@@ -6,6 +6,7 @@ import { InventoryItemEntity } from "../entities/inventory-item.entity";
 import { DroppedItemEntity } from "../entities/dropped-item.entity";
 import { DropSettingsEntity } from "../entities/drop-settings.entity";
 import { ItemDropTierEntity } from "../entities/item-drop-tier.entity";
+import { ItemDropLogEntity } from "../entities/item-drop-log.entity";
 
 export const Entities = [
   MarketItemEntity,
@@ -15,5 +16,6 @@ export const Entities = [
   InventoryItemEntity,
   DroppedItemEntity,
   DropSettingsEntity,
-  ItemDropTierEntity
+  ItemDropTierEntity,
+  ItemDropLogEntity
 ];

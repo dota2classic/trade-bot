@@ -10,6 +10,7 @@ import {
 } from 'typeorm';
 import { ItemQuality } from '../constant';
 import { DroppedItemEntity } from './dropped-item.entity';
+import { ItemDropLogEntity } from "./item-drop-log.entity";
 
 @Entity('market_item')
 @Index('market_hash_name_quality_unique', ['marketHashName', 'quality'], {
@@ -76,4 +77,7 @@ export class MarketItemEntity {
 
   @OneToMany(() => DroppedItemEntity, (t) => t.marketItem)
   drops: Relation<DroppedItemEntity>[];
+
+  @OneToMany(() => ItemDropLogEntity, (t) => t.marketItem)
+  dropLogs: Relation<ItemDropLogEntity>[];
 }

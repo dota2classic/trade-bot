@@ -23,6 +23,7 @@ import { RateLimiter } from './rate-limiter.service';
 import { ItemDropTierEntity } from '../entities/item-drop-tier.entity';
 import { weightedRandom } from '../util/pickWeightedRandom';
 import { ConfigService } from '@nestjs/config';
+import { ItemDropLogEntity } from '../entities/item-drop-log.entity';
 
 interface ItemToBuy {
   market_hash_name: string;
@@ -57,6 +58,8 @@ export class ItemDropService {
     @InjectRepository(ItemDropTierEntity)
     private readonly itemDropTierEntityRepository: Repository<ItemDropTierEntity>,
     private readonly amqpConnection: AmqpConnection,
+    @InjectRepository(ItemDropLogEntity)
+    private readonly itemDropLogEntityRepository: Repository<ItemDropLogEntity>,
     private readonly config: ConfigService,
   ) {}
 
@@ -123,7 +126,7 @@ export class ItemDropService {
 
   @Cron(CronExpression.EVERY_MINUTE)
   public async replenishStock() {
-    if(!this.config.get('trade.scrape')) return;
+    if (!this.config.get('trade.scrape')) return;
 
     const listed = await this.rl.enqueue(() =>
       this.steam.market.myListings(0, 100),
@@ -327,6 +330,7 @@ order by tier_missing::float / greatest(1, expected_tier_stock) desc, missing de
             drop.quality,
             drop.type,
             drop.small_icon,
+            drop.price,
           );
           this.logger.log(
             `Item dropped: ${drop.market_hash_name} for ${players[i]}`,
@@ -436,10 +440,32 @@ LIMIT 1;
     quality: ItemQuality,
     type: string,
     icon: string,
+    price: number,
   ) {
-    const droppedItem = await this.droppedItemEntityRepository.save(
-      new DroppedItemEntity(assetId, matchId, steamId, marketHashName, quality),
-    );
+    await this.ds.transaction(async (tx) => {
+      await tx.save(
+        DroppedItemEntity,
+        new DroppedItemEntity(
+          assetId,
+          matchId,
+          steamId,
+          marketHashName,
+          quality,
+        ),
+      );
+
+      await tx.save(
+        ItemDropLogEntity,
+        new ItemDropLogEntity(
+          steamId,
+          matchId,
+          assetId,
+          marketHashName,
+          quality,
+          price,
+        ),
+      );
+    });
 
     let rarity = '';
     try {
