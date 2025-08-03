@@ -87,8 +87,9 @@ export class TradeOfferService implements OnApplicationBootstrap {
             await this.handleAnyOffer(offer);
           } catch (e) {
             this.logger.warn(
-              `There was an issue processing trade offer ${offer.id}`,
+              `There was an issue processing trade offer ${offer.id}`, e
             );
+            console.error(e)
           } finally {
             this.tradeOfferProcessMap.set(offer.id, false);
           }
