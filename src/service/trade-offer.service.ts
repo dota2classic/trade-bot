@@ -341,7 +341,7 @@ export class TradeOfferService implements OnApplicationBootstrap {
             message: 'Error sending trade request!',
             cause: err.cause,
             errorMessage: err.message,
-            errorCode: EResult[err.eresult.toString()],
+            errorCode: err.eresult,
           });
           reject(`Error sending trade request: ${err.eresult}`);
           return;
