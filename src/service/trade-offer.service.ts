@@ -19,7 +19,7 @@ import { FindOptionsWhere } from 'typeorm/find-options/FindOptionsWhere';
 import { InventoryItemEntity } from '../entities/inventory-item.entity';
 import { AmqpConnection } from '@golevelup/nestjs-rabbitmq';
 import { TradeOfferExpiredEvent } from '../gateway/events/trade-offer-expired.event';
-import { ConfigService } from "@nestjs/config";
+import { ConfigService } from '@nestjs/config';
 
 interface PricedItem {
   item: CEconItem;
@@ -45,7 +45,7 @@ export class TradeOfferService implements OnApplicationBootstrap {
     private readonly droppedItemEntityRepository: Repository<DroppedItemEntity>,
     private readonly ds: DataSource,
     private readonly amqpConnection: AmqpConnection,
-    private readonly config: ConfigService
+    private readonly config: ConfigService,
   ) {}
 
   async onApplicationBootstrap() {
@@ -54,7 +54,7 @@ export class TradeOfferService implements OnApplicationBootstrap {
 
   @Cron(CronExpression.EVERY_MINUTE)
   public async processOffers() {
-    if(!this.config.get('trade.scrape')) return;
+    if (!this.config.get('trade.scrape')) return;
 
     try {
       const { sent, received } = await new Promise<{
@@ -87,9 +87,10 @@ export class TradeOfferService implements OnApplicationBootstrap {
             await this.handleAnyOffer(offer);
           } catch (e) {
             this.logger.warn(
-              `There was an issue processing trade offer ${offer.id}`, e
+              `There was an issue processing trade offer ${offer.id}`,
+              e,
             );
-            console.error(e)
+            console.error(e);
           } finally {
             this.tradeOfferProcessMap.set(offer.id, false);
           }
@@ -232,8 +233,8 @@ export class TradeOfferService implements OnApplicationBootstrap {
 
     // Update prices of our patch items
     await Promise.all(
-      marketItems.map(async (item) =>
-        this.itemPriceService.updateItemMarketData(
+      marketItems.map(async (item) => {
+        await this.itemPriceService.updateItemMarketData(
           item.marketPriceItem._hashName,
           item.marketPriceItem.lowestPrice,
           item.marketPriceItem.firstAsset?.type,
@@ -241,8 +242,8 @@ export class TradeOfferService implements OnApplicationBootstrap {
           item.marketPriceItem.firstAsset?.icon_url,
           item.marketPriceItem.quantity,
           false,
-        ),
-      ),
+        );
+      }),
     );
 
     await this.saveAcceptedTradeOffer(offer, marketItems);
@@ -284,7 +285,7 @@ export class TradeOfferService implements OnApplicationBootstrap {
 
         // Count total traded amount
         const totalTradedBalance = items.reduce(
-          (a, b) => a + b.marketPriceItem.lowestPrice,
+          (a, b) => a + b.marketPriceItem.highestBuyOrder, // For incoming requests we use highestBuyOrder
           0,
         );
 
@@ -352,6 +353,8 @@ export class TradeOfferService implements OnApplicationBootstrap {
     return offer;
   }
 
+  // TODO: works bad for items like this https://steamcommunity.com/market/listings/570/Inscribed%20Spaulder%20of%20the%20Dwarf%20Engineer
+  // use max buy price for pricechecking
   private async priceCheckItems(items: CEconItem[]): Promise<PricedItem[]> {
     const marketItems: PricedItem[] = [];
 
@@ -360,7 +363,10 @@ export class TradeOfferService implements OnApplicationBootstrap {
       try {
         marketItems.push({
           item: cEconItem,
-          marketPriceItem: await this.itemPriceService.getMarketItem(cEconItem, cEconItem.appid),
+          marketPriceItem: await this.itemPriceService.getMarketItem(
+            cEconItem,
+            cEconItem.appid,
+          ),
         });
         this.logger.log(`Price checked item ${cEconItem.market_hash_name}`);
       } catch (e) {
