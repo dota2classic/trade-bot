@@ -134,7 +134,7 @@ export class ItemDropService {
         expiration: '7 days',
       })
       .execute();
-    console.log(del);
+    this.logger.log(`Expired ${del.affected} items`)
   }
 
   @Cron(CronExpression.EVERY_MINUTE)
