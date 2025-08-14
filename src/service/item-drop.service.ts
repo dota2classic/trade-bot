@@ -125,6 +125,19 @@ export class ItemDropService {
   }
 
   @Cron(CronExpression.EVERY_MINUTE)
+  public async expireDrops() {
+    const del = await this.droppedItemEntityRepository
+      .createQueryBuilder()
+      .delete()
+      .from(DroppedItemEntity)
+      .where('created + :expiration::interval < now()', {
+        expiration: '7 days',
+      })
+      .execute();
+    console.log(del);
+  }
+
+  @Cron(CronExpression.EVERY_MINUTE)
   public async replenishStock() {
     if (!this.config.get('trade.scrape')) return;
 
