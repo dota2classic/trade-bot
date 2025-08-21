@@ -69,7 +69,7 @@ export class ItemDropService {
     const listings = await this.rl.enqueue(() =>
       this.steam.market.myListings(0, 100),
     );
-    for (let buyOrder of listings.buyOrders) {
+    for (const buyOrder of listings.buyOrders) {
       await this.rl.enqueue(() =>
         this.steam.market.cancelBuyOrder(buyOrder.buyOrderId),
       );
@@ -134,7 +134,7 @@ export class ItemDropService {
         expiration: '7 days',
       })
       .execute();
-    this.logger.log(`Expired ${del.affected} items`)
+    this.logger.log(`Expired ${del.affected} items`);
   }
 
   @Cron(CronExpression.EVERY_MINUTE)
@@ -253,7 +253,7 @@ with tier_buying_now as (
 purchasables as (
   select distinct market_hash_name, quality, price
   from market_item
-  where quantity >= 20 and price < 50000 and quality != 'Corrupted' -- corrupted usually overprice shit
+  where quantity >= 20 and price < 50000 and quality != 'Corrupted' and quality != 'Inscribed' -- corrupted usually overprice shit and inscribed is random pretty much
 ),
 inventory_counts as (
   select market_hash_name, quality, count(*) as stock
