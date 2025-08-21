@@ -253,7 +253,7 @@ with tier_buying_now as (
 purchasables as (
   select distinct market_hash_name, quality, price
   from market_item
-  where quantity >= 20 and price < 50000 and quality != 'Corrupted' and quality != 'Inscribed' -- corrupted usually overprice shit and inscribed is random pretty much
+  where quantity >= 20 and quality != 'Corrupted' and quality != 'Inscribed' -- corrupted usually overprice shit and inscribed is random pretty much
 ),
 inventory_counts as (
   select market_hash_name, quality, count(*) as stock
