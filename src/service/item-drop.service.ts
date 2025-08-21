@@ -44,6 +44,7 @@ export class ItemDropService {
     MatchmakingMode.UNRANKED,
     MatchmakingMode.RANKED,
     MatchmakingMode.HIGHROOM,
+    MatchmakingMode.TURBO,
   ];
 
   constructor(

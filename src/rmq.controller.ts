@@ -21,7 +21,9 @@ export class RmqController {
     await this.itemDropService.onMatchFinished(
       data.type,
       data.matchId,
-      data.players.map((t) => t.steam_id),
+      data.players
+        .filter((t) => !t.abandoned && t.steam_id.length > 2)
+        .map((t) => t.steam_id),
     );
   }
 }
