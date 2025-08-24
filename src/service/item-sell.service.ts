@@ -92,20 +92,17 @@ export class ItemSellService implements OnApplicationBootstrap {
     this.inventory_index =
       (this.inventory_index + 1) % SUPPORTED_APP_IDS.length;
 
+    const APP_ID = SUPPORTED_APP_IDS[this.inventory_index];
+
     // TODO: make this request our db not inventory
     const res = await new Promise<CEconItem[]>((resolve, reject) => {
-      this.steam.trade.getInventoryContents(
-        SUPPORTED_APP_IDS[this.inventory_index],
-        2,
-        false,
-        (err, res) => {
-          if (err) {
-            reject(err);
-            return;
-          }
-          resolve(res as CEconItem[]);
-        },
-      );
+      this.steam.trade.getInventoryContents(APP_ID, 2, false, (err, res) => {
+        if (err) {
+          reject(err);
+          return;
+        }
+        resolve(res as CEconItem[]);
+      });
     }).then((t) => t.filter((t) => t.marketable));
 
     const selectors = res.map((t) => ({
@@ -143,7 +140,7 @@ export class ItemSellService implements OnApplicationBootstrap {
 
     try {
       const result = await this.rl.enqueue(() =>
-        this.steam.market.createSellOrder(DOTA_APPID, {
+        this.steam.market.createSellOrder(item.appid, {
           price: sellPrice / 100,
           amount: 1,
           assetId: item.assetid as number,
