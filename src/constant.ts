@@ -1,5 +1,22 @@
 export const DOTA_APPID = 570;
 
+export const SUPPORTED_APP_IDS = [
+  3015610, // Cucumber
+  2977660, // Cats
+  2784840, // Egg
+  3050630, // Melon
+  3070500, // Coin
+  2923300, // Banana
+  753, // Steam
+  440, // TeamFortress
+  570, // Dota
+  730, // Counter strike
+
+
+
+
+]
+
 export enum Currency {
   USD = '1',
   POUND = '2',

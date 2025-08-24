@@ -3,7 +3,7 @@ import { Steam } from '../steam';
 import { InjectRepository } from '@nestjs/typeorm';
 import { MarketItemEntity } from '../entities/market-item.entity';
 import { In, Repository } from 'typeorm';
-import { DOTA_APPID } from '../constant';
+import { DOTA_APPID, SUPPORTED_APP_IDS } from '../constant';
 import { marketHashToSelectorName } from '../util/marketHashToName';
 import { ConfigService } from '@nestjs/config';
 import { ItemPriceService } from './item-price.service';
@@ -16,6 +16,7 @@ import { RateLimiter } from './rate-limiter.service';
 @Injectable()
 export class ItemSellService implements OnApplicationBootstrap {
   private logger = new Logger(ItemSellService.name);
+  private inventory_index = 0;
 
   // private static TRADE_LISTING_OUTDATED_THRESHOLD = 1000 * 60 * 60 * 24 * 1; // 3 days
   private static TRADE_LISTING_OUTDATED_THRESHOLD = 1000 * 60 * 60; // 1 hour
@@ -32,7 +33,7 @@ export class ItemSellService implements OnApplicationBootstrap {
 
   @Cron(CronExpression.EVERY_HOUR)
   public async cancelBadSales() {
-    if(!this.config.get('trade.scrape')) return;
+    if (!this.config.get('trade.scrape')) return;
 
     const perPage = 100;
     for (let i = 0; i < 10; i++) {
@@ -86,12 +87,15 @@ export class ItemSellService implements OnApplicationBootstrap {
 
   @Cron(CronExpression.EVERY_MINUTE)
   public async trySellOutdatedItems() {
-    if(!this.config.get('trade.scrape')) return;
+    if (!this.config.get('trade.scrape')) return;
+
+    this.inventory_index =
+      (this.inventory_index + 1) % SUPPORTED_APP_IDS.length;
 
     // TODO: make this request our db not inventory
     const res = await new Promise<CEconItem[]>((resolve, reject) => {
       this.steam.trade.getInventoryContents(
-        DOTA_APPID,
+        SUPPORTED_APP_IDS[this.inventory_index],
         2,
         false,
         (err, res) => {
