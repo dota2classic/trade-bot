@@ -10,8 +10,7 @@ import { MarketItemSelector } from '../util/marketHashToName';
 import { SearchResult } from '@dota2classic/steam-market';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { RateLimiter } from './rate-limiter.service';
-import { wait } from "../util/wait";
-import { ConfigService } from "@nestjs/config";
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class ItemPriceService {
@@ -22,7 +21,7 @@ export class ItemPriceService {
     @InjectRepository(MarketItemEntity)
     private readonly marketItemEntityRepository: Repository<MarketItemEntity>,
     private readonly rl: RateLimiter,
-    private readonly config: ConfigService
+    private readonly config: ConfigService,
   ) {}
 
   public async priceCheck2(item: MarketItemEntity) {
@@ -83,7 +82,7 @@ export class ItemPriceService {
           sellPrice: t.sellPrice,
           quantity: t.sellListings,
           iconUrl: t.assetDescription.iconUrl,
-          type: t.assetDescription.type
+          type: t.assetDescription.type,
         };
       })
       .filter(Boolean);
@@ -118,7 +117,7 @@ export class ItemPriceService {
 
   @Cron(CronExpression.EVERY_MINUTE)
   public async priceCheck() {
-    if(!this.config.get('trade.scrape')) return;
+    if (!this.config.get('trade.scrape')) return;
 
     const indexed = await this.marketItemEntityRepository.count({
       where: {
@@ -139,11 +138,17 @@ export class ItemPriceService {
     await Promise.all(toCheck.map((item) => this.priceCheck2(item)));
   }
 
-  public getMarketItem = async (item: CEconItem, appId = DOTA_APPID): Promise<CMarketItem> => {
+  public getMarketItem = async (
+    item: CEconItem,
+    appId = DOTA_APPID,
+  ): Promise<CMarketItem> => {
     return this.getMarketItemByName(item.market_hash_name, appId);
   };
 
-  public getMarketItemByName = async (name: string, appId = DOTA_APPID): Promise<CMarketItem> => {
+  public getMarketItemByName = async (
+    name: string,
+    appId = DOTA_APPID,
+  ): Promise<CMarketItem> => {
     return this.rl.enqueue(
       () =>
         new Promise((resolve, reject) =>
@@ -160,12 +165,11 @@ export class ItemPriceService {
     );
   };
 
-  public getLowestBuyPrice = async (name: string): Promise<number> => {
-    return this.getMarketItemByName(name).then((t) => t.lowestPrice);
-  };
-
-  public getSellPrice = async (name: string): Promise<number> => {
-    const mitem = await this.getMarketItemByName(name);
+  public getSellPrice = async (
+    name: string,
+    appid: number,
+  ): Promise<number> => {
+    const mitem = await this.getMarketItemByName(name, appid);
     const basePrice = mitem.lowestPrice;
 
     if (mitem.medianSalePrices.length === 0) {

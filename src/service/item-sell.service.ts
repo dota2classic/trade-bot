@@ -132,6 +132,7 @@ export class ItemSellService implements OnApplicationBootstrap {
   private async sellItem(item: CEconItem) {
     const sellPrice = await this.itemPriceService.getSellPrice(
       item.market_hash_name,
+      item.appid
     );
 
     this.logger.log(
