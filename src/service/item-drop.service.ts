@@ -242,7 +242,7 @@ with tier_buying_now as (
   ) as t(tier, buying_now)
 ), price_ladder as (
   select
-    row_number() over () as tier,
+    row_number() over (order by price_min) as tier,
     price_min as min_price,
     price_max as max_price,
     weight  / (select sum(weight) from item_drop_tier) as target_weight

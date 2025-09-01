@@ -3,7 +3,7 @@ import { Steam } from '../steam';
 import { InjectRepository } from '@nestjs/typeorm';
 import { MarketItemEntity } from '../entities/market-item.entity';
 import { In, Repository } from 'typeorm';
-import { DOTA_APPID, SUPPORTED_APP_IDS } from '../constant';
+import { SUPPORTED_APP_IDS } from '../constant';
 import { marketHashToSelectorName } from '../util/marketHashToName';
 import { ConfigService } from '@nestjs/config';
 import { ItemPriceService } from './item-price.service';
@@ -132,7 +132,7 @@ export class ItemSellService implements OnApplicationBootstrap {
   private async sellItem(item: CEconItem) {
     const sellPrice = await this.itemPriceService.getSellPrice(
       item.market_hash_name,
-      item.appid
+      item.appid,
     );
 
     this.logger.log(
