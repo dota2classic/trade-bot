@@ -215,15 +215,6 @@ export class TradeOfferService implements OnApplicationBootstrap {
       return;
     }
 
-    const extraData: TradeOfferRawJson = JSON.parse(offer.rawJson);
-    if (
-      extraData.delay_settlement &&
-      new Date(extraData.settlement_date * 1000).getTime() > Date.now()
-    ) {
-      this.logger.warn('Skipping processing of trade-protected offer');
-      return;
-    }
-
     // Already processed?
     const alreadyHandled = await this.tradeOfferEntityRepository.exists({
       where: {
@@ -232,6 +223,15 @@ export class TradeOfferService implements OnApplicationBootstrap {
     });
     if (alreadyHandled) {
       // this.logger.warn('Trade is already saved: we skip it');
+      return;
+    }
+
+    const extraData: TradeOfferRawJson = JSON.parse(offer.rawJson);
+    if (
+      extraData.delay_settlement &&
+      new Date(extraData.settlement_date * 1000).getTime() > Date.now()
+    ) {
+      this.logger.warn('Skipping processing of trade-protected offer');
       return;
     }
 
