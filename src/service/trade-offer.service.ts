@@ -1,10 +1,10 @@
 import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
 import { DOTA_APPID, ETradeOfferState, TradeOfferStatus } from '../constant';
-import { EOfferFilter, EResult } from 'steam-tradeoffer-manager';
+import { EOfferFilter } from 'steam-tradeoffer-manager';
 import CEconItem from 'steamcommunity/classes/CEconItem';
 import TradeOffer from 'steam-tradeoffer-manager/lib/classes/TradeOffer';
 import { Steam } from '../steam';
-import { CMarketItem } from '../steamexts';
+import { CMarketItem, TradeOfferRawJson } from '../steamexts';
 import { MarketItemEntity } from '../entities/market-item.entity';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, In, Repository } from 'typeorm';
@@ -136,6 +136,15 @@ export class TradeOfferService implements OnApplicationBootstrap {
     }
 
     if (offer.state !== ETradeOfferState.Accepted) {
+      return;
+    }
+
+    const extraData: TradeOfferRawJson = JSON.parse(offer.rawJson);
+    if (
+      extraData.delay_settlement &&
+      new Date(extraData.settlement_date * 1000).getTime() > Date.now()
+    ) {
+      this.logger.warn('Skipping processing of trade-protected offer');
       return;
     }
 
