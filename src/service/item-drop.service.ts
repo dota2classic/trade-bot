@@ -138,7 +138,7 @@ export class ItemDropService {
     this.logger.log(`Expired ${del.affected} items`);
   }
 
-  @Cron(CronExpression.EVERY_MINUTE)
+  @Cron(CronExpression.EVERY_5_MINUTES)
   public async replenishStock() {
     if (!this.config.get('trade.scrape')) return;
 
