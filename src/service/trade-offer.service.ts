@@ -379,7 +379,7 @@ export class TradeOfferService implements OnApplicationBootstrap {
         });
         this.logger.log(`Price checked item ${cEconItem.market_hash_name}`);
       } catch (e) {
-        this.logger.warn('There was an issue price checking item!', e);
+        this.logger.warn('There was an issue price checking item!');
       } finally {
         await wait(3000);
       }

@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { RetryError, seconds, throttledQueue } from 'throttled-queue';
+import { throttledQueue } from 'throttled-queue';
 
 type ApiCall<T> = () => Promise<T>;
 
@@ -21,11 +21,7 @@ export class RateLimiter {
 
   public enqueue<T>(apiCall: ApiCall<T>): Promise<T> {
     return this.throttle(async () => {
-      apiCall().catch(() => {
-        this.logger.error(
-          'There was an error executing rate limited api call!',
-        );
-      });
+      return apiCall();
     });
   }
 }
