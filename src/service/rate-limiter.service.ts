@@ -25,10 +25,6 @@ export class RateLimiter {
         this.logger.error(
           'There was an error executing rate limited api call!',
         );
-        throw new RetryError({
-          pauseQueue: true,
-          retryAfter: seconds(30),
-        });
       });
     });
   }
