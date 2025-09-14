@@ -361,7 +361,10 @@ export class TradeOfferService implements OnApplicationBootstrap {
           // reject(`Error sending trade request: ${err.eresult}`);
           reject(
             new HttpException(
-              { message: 'Аккаунт не может принять запрос на обмен!' },
+              {
+                message:
+                  'Не можем отправить запрос на обмен: VAC или аккаунт не может обмениваться.',
+              },
               HttpStatus.BAD_REQUEST,
             ),
           );
