@@ -1,4 +1,10 @@
-import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
+import {
+  HttpException,
+  HttpStatus,
+  Injectable,
+  Logger,
+  OnApplicationBootstrap,
+} from '@nestjs/common';
 import { DOTA_APPID, ETradeOfferState, TradeOfferStatus } from '../constant';
 import { EOfferFilter } from 'steam-tradeoffer-manager';
 import CEconItem from 'steamcommunity/classes/CEconItem';
@@ -352,7 +358,13 @@ export class TradeOfferService implements OnApplicationBootstrap {
             errorMessage: err.message,
             errorCode: err.eresult,
           });
-          reject(`Error sending trade request: ${err.eresult}`);
+          // reject(`Error sending trade request: ${err.eresult}`);
+          reject(
+            new HttpException(
+              { message: 'Аккаунт не может принять запрос на обмен!' },
+              HttpStatus.BAD_REQUEST,
+            ),
+          );
           return;
         }
         resolve(status);
