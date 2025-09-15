@@ -49,7 +49,8 @@ export class RateLimiter {
         }
         if (e.status === 406 && e.response.data.success === 22) {
           this.logger.warn(
-            'Too many requests without confirmation! pausing queue',
+            `Too many requests without confirmation! pausing queue`,
+            e.response.data,
           );
           throw new RetryError({
             pauseQueue: true,
