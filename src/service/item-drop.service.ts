@@ -138,7 +138,7 @@ export class ItemDropService {
     this.logger.log(`Expired ${del.affected} items`);
   }
 
-  @Cron(CronExpression.EVERY_10_MINUTES)
+  @Cron(CronExpression.EVERY_5_MINUTES)
   public async replenishStock() {
     if (!this.config.get('trade.scrape')) return;
 
@@ -188,17 +188,14 @@ export class ItemDropService {
       true,
     );
 
-    const r = await this.rl.enqueue(() =>
+    const r = await this.rl.enqueueMarket(() =>
       this.steam.market.createBuyOrder(DOTA_APPID, {
         marketHashName: hashName,
-        price: fairPrice * 100, // it will divide to 100
+        price: fairPrice,
         amount: 1,
       }),
     );
-    if (r.success) {
-      if (Number.isNaN(r.buyOrderId)) {
-        console.log('Bad buy?', r);
-      }
+    if (r.success && !Number.isNaN(r.buyOrderId)) {
       this.logger.log(
         `Buy order created for ${hashName}. Order id = ${r.buyOrderId}`,
       );
