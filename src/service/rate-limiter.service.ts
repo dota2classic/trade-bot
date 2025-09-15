@@ -21,8 +21,9 @@ export class RateLimiter {
 
   public enqueue<T>(apiCall: ApiCall<T>): Promise<T> {
     return this.throttle(async () => {
-      return apiCall().catch((e) => {
+      return apiCall().catch((e: Error) => {
         this.logger.warn('Rate limited!', typeof e);
+        console.log(e.message);
       });
     });
   }
