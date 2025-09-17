@@ -363,7 +363,7 @@ export class TradeOfferService implements OnApplicationBootstrap {
             new HttpException(
               {
                 message:
-                  'Не можем отправить запрос на обмен: VAC или аккаунт не может обмениваться.',
+                  'Не можем отправить запрос на обмен: Неверная ссылка для трейда, VAC или аккаунт не может обмениваться по другим причинам.',
               },
               HttpStatus.BAD_REQUEST,
             ),
