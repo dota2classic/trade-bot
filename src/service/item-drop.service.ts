@@ -191,7 +191,7 @@ export class ItemDropService {
     const r = await this.rl.enqueueMarket(() =>
       this.steam.market.createBuyOrder(DOTA_APPID, {
         marketHashName: hashName,
-        price: fairPrice,
+        price: fairPrice * 100,
         amount: 1,
       }),
     );
