@@ -6,6 +6,7 @@ import { Steam } from '../steam';
 import { DroppedItemEntity } from '../entities/dropped-item.entity';
 import { MarketItemEntity } from '../entities/market-item.entity';
 import { TradeOfferService } from './trade-offer.service';
+import { HttpStatusCode } from 'axios';
 
 @Injectable()
 export class UserService {
@@ -63,7 +64,10 @@ export class UserService {
     this.logger.log(`User ${steamId}: ${droppedItems.length} to trade`);
 
     if (droppedItems.length === 0) {
-      throw 'No items available for trade!';
+      throw new HttpException(
+        { message: 'Нет предметов, доступных для обмена!' },
+        HttpStatusCode.BadRequest,
+      );
     }
 
     // then, create trade request

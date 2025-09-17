@@ -383,16 +383,19 @@ export class TradeOfferService implements OnApplicationBootstrap {
     const marketItems: PricedItem[] = [];
 
     // Price check them
-    for (let cEconItem of items) {
+    for (const cEconItem of items) {
       try {
+        const marketPriceItem = await this.itemPriceService.getMarketItem(
+          cEconItem,
+          cEconItem.appid,
+        );
         marketItems.push({
           item: cEconItem,
-          marketPriceItem: await this.itemPriceService.getMarketItem(
-            cEconItem,
-            cEconItem.appid,
-          ),
+          marketPriceItem,
         });
-        this.logger.log(`Price checked item ${cEconItem.market_hash_name}`);
+        this.logger.log(
+          `Price checked item ${cEconItem.market_hash_name}: Price is H: ${marketPriceItem.highestBuyOrder} | L: ${marketPriceItem.lowestPrice}`,
+        );
       } catch (e) {
         this.logger.warn('There was an issue price checking item!');
       } finally {
