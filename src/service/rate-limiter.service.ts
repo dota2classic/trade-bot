@@ -47,7 +47,14 @@ export class RateLimiter {
             pauseQueue: true,
           }); // pause the queue until retryAfter
         }
-        if (e.status === 406 && e.response.data.success === 22) {
+        this.logger.warn(
+          `We got and error doing request! code=${e.response.status}`,
+          e.response.data,
+        );
+        if (
+          e.status === 406 &&
+          (e.response.data.success === 22 || e.response.data.success === 84)
+        ) {
           this.logger.warn(
             `Too many requests without confirmation! pausing queue`,
             e.response.data,
