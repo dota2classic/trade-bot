@@ -62,7 +62,9 @@ export class ItemDropService {
     @InjectRepository(ItemDropLogEntity)
     private readonly itemDropLogEntityRepository: Repository<ItemDropLogEntity>,
     private readonly config: ConfigService,
-  ) {}
+  ) {
+    this.replenishStock();
+  }
 
   @Cron(CronExpression.EVERY_6_HOURS)
   public async clearBuyOrders() {
@@ -138,7 +140,7 @@ export class ItemDropService {
     this.logger.log(`Expired ${del.affected} items`);
   }
 
-  // @Cron(CronExpression.EVERY_5_MINUTES)
+  @Cron(CronExpression.EVERY_5_MINUTES)
   public async replenishStock() {
     if (!this.config.get('trade.scrape')) return;
 

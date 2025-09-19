@@ -17,10 +17,10 @@ import { ItemDropService } from './service/item-drop.service';
 import SteamMarket, { ECurrencyCode } from '@dota2classic/steam-market';
 import { RabbitMQConfig, RabbitMQModule } from '@golevelup/nestjs-rabbitmq';
 import { RmqController } from './rmq.controller';
-import { TradeController } from "./rest/trade.controller";
-import { UserService } from "./service/user.service";
-import { TradeMapper } from "./rest/trade.mapper";
-import { RateLimiter } from "./service/rate-limiter.service";
+import { TradeController } from './rest/trade.controller';
+import { UserService } from './service/user.service';
+import { TradeMapper } from './rest/trade.mapper';
+import { RateLimiter } from './service/rate-limiter.service';
 
 @Module({
   imports: [
@@ -72,14 +72,26 @@ import { RateLimiter } from "./service/rate-limiter.service";
     {
       provide: Steam,
       useFactory: async (config: ConfigService) => {
-        const client = new SteamUser();
+        const client = new SteamUser({
+          // renewRefreshTokens: true,
+          autoRelogin: true,
+          webCompatibilityMode: true,
+          dataDirectory: './2fa_test'
+        });
         const community = new SteamCommunity();
-        const market = new SteamMarket();
+        // @ts-ignore
+        const market = new SteamMarket(community);
 
         market.setCurrency(ECurrencyCode.RUB);
         market.setCountry('RU');
 
         const refreshToken = config.get('steam.refreshToken');
+
+        console.log('Login using refreshg token?' + !!refreshToken);
+
+        client.on('refreshToken', (tkn) => {
+          console.log('New rfresh!', tkn);
+        });
 
         client.logOn(
           refreshToken
@@ -98,7 +110,7 @@ import { RateLimiter } from "./service/rate-limiter.service";
         const manager = new TradeOfferManager({
           steam: client,
           community: community,
-          language: 'en',
+          language: 'ru',
         });
 
         const steam = new Steam(manager, client, community, market);
@@ -115,11 +127,24 @@ import { RateLimiter } from "./service/rate-limiter.service";
             community.setCookies(cookies);
             market.setCookies(cookies);
 
+            console.log('Sessionid', sessionid, cookies);
+
             community.startConfirmationChecker(
               10000,
               config.get('steam.identitySecret'),
             );
             resolve();
+          });
+        });
+
+        community.on('sessionExpired', () => {
+          console.log('Session expired! Relogging in');
+          client.logOn({
+            accountName: config.get('steam.username'),
+            password: config.get('steam.password'),
+            twoFactorCode: SteamTotp.generateAuthCode(
+              config.get('steam.sharedSecret'),
+            ),
           });
         });
         await Promise.all([logPromise, webPromise]);
