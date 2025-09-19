@@ -381,10 +381,10 @@
     fluent-logger "^3.4.1"
     winston "^3.17.0"
 
-"@dota2classic/steam-market@^3.0.13":
-  version "3.0.13"
-  resolved "https://registry.yarnpkg.com/@dota2classic/steam-market/-/steam-market-3.0.13.tgz#9b68dc0d20c0897f97621b8eaa8868586e2fa62c"
-  integrity sha512-/nJyiD2jWcKikQeXpIiqpgP4+ngpubbVZdy92jXf9LhUuKI3uPXav0EqZ7rPany3xCJvcT0d2kojtlPdbxR2jA==
+"@dota2classic/steam-market@^3.0.14":
+  version "3.0.14"
+  resolved "https://registry.yarnpkg.com/@dota2classic/steam-market/-/steam-market-3.0.14.tgz#43c72d1c22105ba09ef6d777b6c791c477b4a0c5"
+  integrity sha512-2O9v1bCKsU4ubJi2UOibsvKPxwDtz3McE6Iaw1W43+J/VNQ1IHXHY32gJpPzPsuLyfClXKOt3Tu8ZRi6/8xv0g==
   dependencies:
     axios "^1.4.0"
     currency-codes "^2.1.0"

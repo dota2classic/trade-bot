@@ -130,7 +130,7 @@ import { RateLimiter } from './service/rate-limiter.service';
             console.log('Sessionid', sessionid, cookies);
 
             community.startConfirmationChecker(
-              10000,
+              5000,
               config.get('steam.identitySecret'),
             );
             resolve();

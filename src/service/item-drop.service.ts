@@ -24,6 +24,7 @@ import { ItemDropTierEntity } from '../entities/item-drop-tier.entity';
 import { weightedRandom } from '../util/pickWeightedRandom';
 import { ConfigService } from '@nestjs/config';
 import { ItemDropLogEntity } from '../entities/item-drop-log.entity';
+import { wait } from '../util/wait';
 
 interface ItemToBuy {
   market_hash_name: string;
@@ -190,13 +191,34 @@ export class ItemDropService {
       true,
     );
 
-    const r = await this.rl.enqueueMarket(() =>
+    const r = await this.rl.enqueueMarket<any>(() =>
       this.steam.market.createBuyOrder(DOTA_APPID, {
         marketHashName: hashName,
         price: fairPrice * 100,
         amount: 1,
       }),
     );
+    this.logger.log('CreateBuyOrderResult:', r);
+    if (r.need_confirmation) {
+      const cid = r.confirmation.confirmation_id;
+
+      this.logger.log('Waiting for confirm to happen');
+      await wait(7000);
+
+      try {
+        this.logger.log('Re-sending buy order with confirmation_id');
+        const result = await this.steam.market.createBuyOrder(DOTA_APPID, {
+          marketHashName: hashName,
+          price: fairPrice * 100,
+          amount: 1,
+          confirmationId: cid,
+        });
+        this.logger.log('Success?', result);
+      } catch (e) {
+        this.logger.warn('No luck with conf:', e.response.data);
+      }
+    }
+
     if (r.success && !Number.isNaN(r.buyOrderId)) {
       this.logger.log(
         `Buy order created for ${hashName}. Order id = ${r.buyOrderId}`,
