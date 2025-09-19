@@ -215,7 +215,7 @@ export class ItemDropService {
             confirmationId: cid,
           }),
         );
-        if (r.success === 1) {
+        if (!r.need_confirmation && r.buyOrderId) {
           this.logger.log('We successfully placed a buy order');
         } else {
           this.logger.warn('There still was an issue creating a buy order:', r);
@@ -533,9 +533,5 @@ LIMIT 1;
       ),
     );
     this.logger.log('Published drop item event');
-  }
-
-  private isConfirmationRequired(t: unknown): t is CreateBuyOrder {
-    return '_data' in t;
   }
 }
