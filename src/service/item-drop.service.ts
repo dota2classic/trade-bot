@@ -18,7 +18,7 @@ import {
   ItemDroppedEvent,
   MarketItemDto,
 } from '../gateway/events/item-dropped.event';
-import { BuyOrder } from '@dota2classic/steam-market';
+import { BuyOrder, CreateBuyOrder } from '@dota2classic/steam-market';
 import { RateLimiter } from './rate-limiter.service';
 import { ItemDropTierEntity } from '../entities/item-drop-tier.entity';
 import { weightedRandom } from '../util/pickWeightedRandom';
@@ -191,7 +191,7 @@ export class ItemDropService {
       true,
     );
 
-    const r = await this.rl.enqueueMarket<any>(() =>
+    let r: CreateBuyOrder = await this.rl.enqueueMarket(() =>
       this.steam.market.createBuyOrder(DOTA_APPID, {
         marketHashName: hashName,
         price: fairPrice * 100,
@@ -203,17 +203,23 @@ export class ItemDropService {
       const cid = r.confirmation.confirmation_id;
 
       this.logger.log('Waiting for confirm to happen');
-      await wait(7000);
+      await wait(12000);
 
       try {
         this.logger.log('Re-sending buy order with confirmation_id');
-        const result = await this.steam.market.createBuyOrder(DOTA_APPID, {
-          marketHashName: hashName,
-          price: fairPrice * 100,
-          amount: 1,
-          confirmationId: cid,
-        });
-        this.logger.log('Success?', result);
+        r = await this.rl.enqueueMarket(() =>
+          this.steam.market.createBuyOrder(DOTA_APPID, {
+            marketHashName: hashName,
+            price: fairPrice * 100,
+            amount: 1,
+            confirmationId: cid,
+          }),
+        );
+        if (r.success === 1) {
+          this.logger.log('We successfully placed a buy order');
+        } else {
+          this.logger.warn('There still was an issue creating a buy order:', r);
+        }
       } catch (e) {
         this.logger.warn('No luck with conf:', e.response.data);
       }
@@ -527,5 +533,9 @@ LIMIT 1;
       ),
     );
     this.logger.log('Published drop item event');
+  }
+
+  private isConfirmationRequired(t: unknown): t is CreateBuyOrder {
+    return '_data' in t;
   }
 }

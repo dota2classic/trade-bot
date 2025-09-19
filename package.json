@@ -27,7 +27,7 @@
   },
   "dependencies": {
     "@dota2classic/nest_logger": "^0.0.11",
-    "@dota2classic/steam-market": "^3.0.14",
+    "@dota2classic/steam-market": "^3.0.15",
     "@golevelup/nestjs-rabbitmq": "^6.0.1",
     "@nestjs/common": "^11.1.5",
     "@nestjs/config": "^4.0.2",
