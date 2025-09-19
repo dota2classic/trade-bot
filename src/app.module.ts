@@ -76,22 +76,15 @@ import { RateLimiter } from './service/rate-limiter.service';
           // renewRefreshTokens: true,
           autoRelogin: true,
           webCompatibilityMode: true,
-          dataDirectory: './2fa_test'
+          dataDirectory: './2fa_test',
         });
         const community = new SteamCommunity();
-        // @ts-ignore
-        const market = new SteamMarket(community);
+        const market = new SteamMarket();
 
         market.setCurrency(ECurrencyCode.RUB);
         market.setCountry('RU');
 
         const refreshToken = config.get('steam.refreshToken');
-
-        console.log('Login using refreshg token?' + !!refreshToken);
-
-        client.on('refreshToken', (tkn) => {
-          console.log('New rfresh!', tkn);
-        });
 
         client.logOn(
           refreshToken
@@ -126,8 +119,6 @@ import { RateLimiter } from './service/rate-limiter.service';
             manager.setCookies(cookies);
             community.setCookies(cookies);
             market.setCookies(cookies);
-
-            console.log('Sessionid', sessionid, cookies);
 
             community.startConfirmationChecker(
               10000,

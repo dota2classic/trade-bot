@@ -63,9 +63,7 @@ export class ItemDropService {
     @InjectRepository(ItemDropLogEntity)
     private readonly itemDropLogEntityRepository: Repository<ItemDropLogEntity>,
     private readonly config: ConfigService,
-  ) {
-    this.replenishStock();
-  }
+  ) {}
 
   @Cron(CronExpression.EVERY_6_HOURS)
   public async clearBuyOrders() {
