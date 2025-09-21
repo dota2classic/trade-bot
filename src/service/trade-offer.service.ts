@@ -60,7 +60,6 @@ export class TradeOfferService implements OnApplicationBootstrap {
 
   @Cron(CronExpression.EVERY_MINUTE)
   public async processOffers() {
-    return;
     if (!this.config.get('trade.scrape')) return;
 
     try {
