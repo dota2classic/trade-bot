@@ -118,7 +118,6 @@ export class ItemSellService implements OnApplicationBootstrap {
       },
     });
 
-    this.logger.log("Items ew have", existing.map(t => t.marketHashName))
     const outdatedItems = selectors.filter(
       (t) =>
         !isTradable(t.item) ||
@@ -126,12 +125,10 @@ export class ItemSellService implements OnApplicationBootstrap {
           -1,
     );
 
-    this.logger.log(
-      'List of outdated items: ',
-      outdatedItems.map((t) => t.marketHashName),
-    );
-
     for (const item of outdatedItems.reverse().slice(0, 1)) {
+      this.logger.log(
+        `Selling item ${item.marketHashName} because: ${isTradable(item.item) ? 'outdated' : ' non-tradable'}!`,
+      );
       await this.sellItem(item.item);
       await wait(2000);
     }
@@ -141,10 +138,6 @@ export class ItemSellService implements OnApplicationBootstrap {
     const sellPrice = await this.itemPriceService.getSellPrice(
       item.market_hash_name,
       item.appid,
-    );
-
-    this.logger.log(
-      `Trying to sell ${item.market_hash_name} for ${sellPrice}, ${item.assetid}`,
     );
 
     try {
