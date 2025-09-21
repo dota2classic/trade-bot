@@ -11,6 +11,7 @@ import { SearchResult } from '@dota2classic/steam-market';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { RateLimiter } from './rate-limiter.service';
 import { ConfigService } from '@nestjs/config';
+import { formatPrice } from '../util/formatPrice';
 
 @Injectable()
 export class ItemPriceService {
@@ -22,7 +23,9 @@ export class ItemPriceService {
     private readonly marketItemEntityRepository: Repository<MarketItemEntity>,
     private readonly rl: RateLimiter,
     private readonly config: ConfigService,
-  ) {}
+  ) {
+    this.priceCheckInventoryItem();
+  }
 
   public async priceCheck2(item: MarketItemEntity) {
     const qualities = ItemQualities.map((t) => {
@@ -113,6 +116,29 @@ export class ItemPriceService {
     this.logger.log(
       `Successfully update some data about items ${actualQualities.length}. Total request: ${Math.ceil(allListings.length / pageSize)}`,
     );
+  }
+
+  @Cron(CronExpression.EVERY_MINUTE)
+  public async priceCheckInventoryItem() {
+    if (!this.config.get('trade.scrape')) return;
+
+    const res = await this.marketItemEntityRepository.query<
+      { id: number; market_hash_name: string; quality: ItemQuality }[]
+    >(`
+      SELECT mi.id, mi.market_hash_name, mi.quality
+      FROM market_item mi
+      INNER JOIN inventory_item ii 
+          ON ii.market_hash_name = mi.market_hash_name
+         AND ii.quality = mi.quality
+      ORDER BY mi.updated ASC
+      LIMIT 1
+    `);
+
+    const mitem = await this.marketItemEntityRepository.findOneBy({
+      id: res[0].id,
+    });
+
+    await this.priceCheck2(mitem);
   }
 
   @Cron(CronExpression.EVERY_5_MINUTES)
@@ -210,6 +236,10 @@ export class ItemPriceService {
     } else {
       quality = ItemQuality.Standard;
     }
+
+    this.logger.log(
+      `Update market data for ${quality} ${itemName}: P: ${formatPrice(price)}, Q: ${quantity}`,
+    );
 
     if (upsert) {
       await this.marketItemEntityRepository.upsert(

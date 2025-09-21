@@ -60,6 +60,7 @@ export class TradeOfferService implements OnApplicationBootstrap {
 
   @Cron(CronExpression.EVERY_MINUTE)
   public async processOffers() {
+    return;
     if (!this.config.get('trade.scrape')) return;
 
     try {
@@ -251,7 +252,7 @@ export class TradeOfferService implements OnApplicationBootstrap {
       marketItems.map(async (item) => {
         await this.itemPriceService.updateItemMarketData(
           item.marketPriceItem._hashName,
-          item.marketPriceItem.lowestPrice,
+          item.marketPriceItem.highestBuyOrder,
           item.marketPriceItem.firstAsset?.type,
           item.marketPriceItem.firstAsset?.icon_url_large,
           item.marketPriceItem.firstAsset?.icon_url,
