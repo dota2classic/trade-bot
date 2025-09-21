@@ -91,13 +91,13 @@ export class ItemPriceService {
       .filter(Boolean);
 
     // First, delete all that are not present
-    const deletion = await this.marketItemEntityRepository.delete({
-      marketHashName: item.marketHashName,
-      quality: Not(In(actualQualities.map((t) => t.quality))),
-    });
-    this.logger.log(
-      `Delete ${deletion.affected} non existing market items for ${item.marketHashName}`,
-    );
+    // const deletion = await this.marketItemEntityRepository.delete({
+    //   marketHashName: item.marketHashName,
+    //   quality: Not(In(actualQualities.map((t) => t.quality))),
+    // });
+    // this.logger.log(
+    //   `Delete ${deletion.affected} non existing market items for ${item.marketHashName}`,
+    // );
 
     await Promise.all(
       actualQualities.map((t) =>
