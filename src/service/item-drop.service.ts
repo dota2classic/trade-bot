@@ -173,7 +173,7 @@ export class ItemDropService {
     const marketItem =
       await this.itemPriceService.getMarketItemByName(hashName);
 
-    const fairPrice = Math.floor(marketItem.lowestPrice * 0.97);
+    const fairPrice = Math.floor(marketItem.highestBuyOrder * 0.97);
 
     this.logger.log(
       `Restock tier ${toPurchase.tier} with ${hashName}: ${toPurchase.tier_stock} / ${toPurchase.expected_stock}. Buying one for ${fairPrice}`,
