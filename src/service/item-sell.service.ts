@@ -28,7 +28,7 @@ export class ItemSellService implements OnApplicationBootstrap {
     private readonly itemPriceService: ItemPriceService,
     private readonly rl: RateLimiter,
   ) {
-    // this.trySellOutdatedItems()
+    this.trySellOutdatedItems();
   }
 
   async onApplicationBootstrap() {}
@@ -97,7 +97,7 @@ export class ItemSellService implements OnApplicationBootstrap {
     const APP_ID = SUPPORTED_APP_IDS[this.inventory_index];
 
     // TODO: make this request our db not inventory
-    const res = await new Promise<CEconItem[]>((resolve, reject) => {
+    const ownedItems = await new Promise<CEconItem[]>((resolve, reject) => {
       this.steam.trade.getInventoryContents(APP_ID, 2, false, (err, res) => {
         if (err) {
           reject(err);
@@ -107,7 +107,7 @@ export class ItemSellService implements OnApplicationBootstrap {
       });
     }).then((t) => t.filter((t) => t.marketable));
 
-    const selectors = res.map((t) => ({
+    const selectors = ownedItems.map((t) => ({
       ...marketHashToSelectorName(t.market_hash_name),
       item: t,
     }));
@@ -118,11 +118,17 @@ export class ItemSellService implements OnApplicationBootstrap {
       },
     });
 
+    this.logger.log("Items ew have", existing.map(t => t.marketHashName))
     const outdatedItems = selectors.filter(
       (t) =>
         !isTradable(t.item) ||
         existing.findIndex((ex) => ex.marketHashName === t.marketHashName) ===
           -1,
+    );
+
+    this.logger.log(
+      'List of outdated items: ',
+      outdatedItems.map((t) => t.marketHashName),
     );
 
     for (const item of outdatedItems.reverse().slice(0, 1)) {
