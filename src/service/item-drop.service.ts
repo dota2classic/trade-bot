@@ -338,6 +338,21 @@ order by tier_missing::float / greatest(1, expected_tier_stock) desc, missing de
     return this.ds.query<ItemToBuy[]>(q);
   }
 
+  public async dropItem(player: string, matchId: number | null) {
+    const drop = await this.pickItemDrop();
+    await this.saveDroppedItem(
+      drop.asset_id,
+      matchId,
+      player,
+      drop.market_hash_name,
+      drop.quality,
+      drop.type,
+      drop.small_icon,
+      drop.price,
+    );
+    this.logger.log(`Item dropped: ${drop.market_hash_name} for ${player}`);
+  }
+
   public async onMatchFinished(
     type: MatchmakingMode,
     matchId: number,
@@ -360,20 +375,7 @@ order by tier_missing::float / greatest(1, expected_tier_stock) desc, missing de
       try {
         if (Math.random() < dropChance) {
           // We are lucky! drop an item
-          const drop = await this.pickItemDrop();
-          await this.saveDroppedItem(
-            drop.asset_id,
-            matchId,
-            players[i],
-            drop.market_hash_name,
-            drop.quality,
-            drop.type,
-            drop.small_icon,
-            drop.price,
-          );
-          this.logger.log(
-            `Item dropped: ${drop.market_hash_name} for ${players[i]}`,
-          );
+          await this.dropItem(players[i], matchId);
         }
       } catch (e) {
         this.logger.error('Error dropping item!', e);
@@ -473,7 +475,7 @@ LIMIT 1;
 
   private async saveDroppedItem(
     assetId: string,
-    matchId: number,
+    matchId: number | null,
     steamId: string,
     marketHashName: string,
     quality: ItemQuality,

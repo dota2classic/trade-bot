@@ -5,6 +5,7 @@ import {
 } from '@golevelup/nestjs-rabbitmq';
 import { GameResultsEvent } from './gateway/events/gs/game-results.event';
 import { ItemDropService } from './service/item-drop.service';
+import { PlayerFinishedMatchEvent } from './gateway/events/gs/player-finished-match.event';
 
 @Controller()
 export class RmqController {
@@ -25,5 +26,16 @@ export class RmqController {
         .filter((t) => !t.abandoned && t.steam_id.length > 2)
         .map((t) => t.steam_id),
     );
+  }
+
+  @RabbitSubscribe({
+    exchange: 'app.events',
+    routingKey: PlayerFinishedMatchEvent.name,
+    queue: `trade-queue.${PlayerFinishedMatchEvent.name}`,
+  })
+  async PlayerFinishedMatchEvent(data: PlayerFinishedMatchEvent) {
+    if (data.unrankedGamesCount === 2) {
+      await this.itemDropService.dropItem(data.steamId, null);
+    }
   }
 }

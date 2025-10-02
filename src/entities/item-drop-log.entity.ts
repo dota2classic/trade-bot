@@ -22,6 +22,7 @@ export class ItemDropLogEntity {
 
   @Column({
     name: 'match_id',
+    nullable: true,
   })
   matchId: number;
 
