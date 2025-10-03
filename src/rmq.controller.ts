@@ -35,7 +35,7 @@ export class RmqController {
   })
   async PlayerFinishedMatchEvent(data: PlayerFinishedMatchEvent) {
     if (data.unrankedGamesCount === 2) {
-      await this.itemDropService.dropItem(data.steamId, null);
+      await this.itemDropService.dropItem(data.steamId, data.matchId);
       this.logger.log(
         `Dropping guaranteed item for 2nd game for a player ${data.steamId}`,
       );
