@@ -29,6 +29,7 @@ import { Steam } from '../steam';
 import { TradeOfferEntity } from '../entities/trade-offer.entity';
 import { ItemDropTierEntity } from '../entities/item-drop-tier.entity';
 import { DropSettingsEntity } from '../entities/drop-settings.entity';
+import { ItemDropService } from '../service/item-drop.service';
 
 @Controller('trade')
 @ApiTags('trade')
@@ -38,6 +39,7 @@ export class TradeController {
     private readonly steam: Steam,
     private readonly mapper: TradeMapper,
     private readonly userService: UserService,
+    private readonly dropService: ItemDropService,
     @InjectRepository(MarketItemEntity)
     private readonly marketItemEntityRepository: Repository<MarketItemEntity>,
     @InjectRepository(UserMarketBalanceEntity)
@@ -102,6 +104,11 @@ export class TradeController {
     });
 
     return drops.map(this.mapper.mapDrop);
+  }
+
+  @Post('drops/:steamId')
+  public async dropItem(@Param('steamId') steamId: string) {
+    await this.dropService.dropItem(steamId, null);
   }
 
   // Ask for a trade request
