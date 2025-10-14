@@ -32,7 +32,7 @@ export default () => {
     trade: {
       marketRateLimitPerMinute:
         parseInt(process.env.MARKET_RATE_LIMIT_PER_MINUTE) || 20,
-      scrape: process.env.DO_TRADE_SCRAPES,
+      scrape: process.env.DO_TRADE_SCRAPES === 'true',
     },
   };
 };
