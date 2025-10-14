@@ -33,6 +33,9 @@ jobs:
     needs: [ build ]
 
     steps:
+      - name: Set short SHA
+        id: vars
+        run: echo "SHORT_SHA=${GITHUB_SHA::7}" >> $GITHUB_ENV
       - name: Login to Docker Hub
         uses: docker/login-action@v2
         with:
@@ -42,5 +45,7 @@ jobs:
         uses: docker/build-push-action@v6.7.0
         with:
           push: true
-          tags: dota2classic/trade-bot:latest
+          tags: |
+            dota2classic/tradebot:k8s-${{ env.SHORT_SHA }}
+            dota2classic/tradebot:k8s-latest
 
