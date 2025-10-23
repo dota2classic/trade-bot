@@ -1,7 +1,11 @@
-name: Test + Docker
+name: Build
+
 on:
   push:
     branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+
 jobs:
   build:
     name: Test
@@ -26,26 +30,7 @@ jobs:
         uses: borales/actions-yarn@v4
         with:
           cmd: build # will run `yarn build` command
-  image:
-    name: Build and push Docker image
-    runs-on: ubuntu-latest
-    if: ${{ always() && contains(join(needs.*.result, ','), 'success') }}
-    needs: [ build ]
-
-    steps:
-      - name: Set short SHA
-        id: vars
-        run: echo "SHORT_SHA=${GITHUB_SHA::7}" >> $GITHUB_ENV
-      - name: Login to Docker Hub
-        uses: docker/login-action@v2
+      - name: Test the app
+        uses: borales/actions-yarn@v4
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-      - name: Build and push Docker images
-        uses: docker/build-push-action@v6.7.0
-        with:
-          push: true
-          tags: |
-            dota2classic/tradebot:k8s-${{ env.SHORT_SHA }}
-            dota2classic/tradebot:k8s-latest
-
+          cmd: test --passWithNoTests  # will run `yarn test` command
