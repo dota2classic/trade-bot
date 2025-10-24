@@ -373,10 +373,10 @@
   resolved "https://registry.yarnpkg.com/@doctormckay/user-agents/-/user-agents-1.0.0.tgz#0b0170470f7391d9d303bb74399e0c609d428bf6"
   integrity sha512-F+sL1YmebZTY2CnjoR9BXFEULpq7y8dxyLx48LZVa0BSDseXdLG/DtPISfM1iNv1XKCeiBzVNfAT/MOQ69v1Zw==
 
-"@dota2classic/nest_logger@^0.0.11":
-  version "0.0.11"
-  resolved "https://registry.yarnpkg.com/@dota2classic/nest_logger/-/nest_logger-0.0.11.tgz#5b9c8ffec27f48b50086e47e2c705d70225dd9ed"
-  integrity sha512-PKqXEkrsbHQDBQ6ucKNeQCnctSnZTK0SH9xw6itKlKn1lQpiq6VcFc8oosoWenYvfYF0u6D+RTuP2hcx7w4XRQ==
+"@dota2classic/nest_logger@^0.0.15":
+  version "0.0.15"
+  resolved "https://registry.yarnpkg.com/@dota2classic/nest_logger/-/nest_logger-0.0.15.tgz#b6b135a893b4da002da40004e61f9df4e587ccb4"
+  integrity sha512-vTORcircf63R01KA4vK4K9V9tEUBfGGz4eq2Vp4Cvvt01uf3bIcEJi2LiYEHCKNEQ4J93D/5nkLvjRCALpFnwQ==
   dependencies:
     fluent-logger "^3.4.1"
     winston "^3.17.0"
