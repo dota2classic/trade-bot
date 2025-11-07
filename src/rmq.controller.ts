@@ -6,6 +6,7 @@ import {
 import { GameResultsEvent } from './gateway/events/gs/game-results.event';
 import { ItemDropService } from './service/item-drop.service';
 import { PlayerFinishedMatchEvent } from './gateway/events/gs/player-finished-match.event';
+import { MatchmakingMode } from './gateway/shared-types/matchmaking-mode';
 
 @Controller()
 export class RmqController {
@@ -34,7 +35,10 @@ export class RmqController {
     queue: `trade-queue.${PlayerFinishedMatchEvent.name}`,
   })
   async PlayerFinishedMatchEvent(data: PlayerFinishedMatchEvent) {
-    if (data.unrankedGamesCount === 2) {
+    if (
+      data.unrankedGamesCount === 2 &&
+      data.lobbyType === MatchmakingMode.UNRANKED
+    ) {
       await this.itemDropService.dropItem(data.steamId, data.matchId);
       this.logger.log(
         `Dropping guaranteed item for 2nd game for a player ${data.steamId}`,
