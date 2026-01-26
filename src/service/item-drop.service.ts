@@ -173,6 +173,12 @@ export class ItemDropService {
     const marketItem =
       await this.itemPriceService.getMarketItemByName(hashName);
 
+    if (Number.isNaN(marketItem.highestBuyOrder)) {
+      this.logger.warn(
+        `There are no buy orders for item ${hashName}! Skipping it`,
+      );
+      return;
+    }
     const fairPrice = Math.floor(marketItem.highestBuyOrder * 0.97);
 
     this.logger.log(

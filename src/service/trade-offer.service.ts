@@ -248,17 +248,19 @@ export class TradeOfferService implements OnApplicationBootstrap {
 
     // Update prices of our patch items
     await Promise.all(
-      marketItems.map(async (item) => {
-        await this.itemPriceService.updateItemMarketData(
-          item.marketPriceItem._hashName,
-          item.marketPriceItem.highestBuyOrder,
-          item.marketPriceItem.firstAsset?.type,
-          item.marketPriceItem.firstAsset?.icon_url_large,
-          item.marketPriceItem.firstAsset?.icon_url,
-          item.marketPriceItem.quantity,
-          false,
-        );
-      }),
+      marketItems
+        .filter((item) => !Number.isNaN(item.marketPriceItem.highestBuyOrder))
+        .map(async (item) => {
+          await this.itemPriceService.updateItemMarketData(
+            item.marketPriceItem._hashName,
+            item.marketPriceItem.highestBuyOrder,
+            item.marketPriceItem.firstAsset?.type,
+            item.marketPriceItem.firstAsset?.icon_url_large,
+            item.marketPriceItem.firstAsset?.icon_url,
+            item.marketPriceItem.quantity,
+            false,
+          );
+        }),
     );
 
     await this.saveAcceptedTradeOffer(offer, marketItems);
@@ -300,7 +302,15 @@ export class TradeOfferService implements OnApplicationBootstrap {
 
         // Count total traded amount
         const totalTradedBalance = items.reduce(
-          (a, b) => a + b.marketPriceItem.highestBuyOrder, // For incoming requests we use highestBuyOrder
+          (a, b) => {
+            let total = a;
+            if (Number.isNaN(b.marketPriceItem.highestBuyOrder)) {
+              total += b.marketPriceItem.lowestPrice * 0.9;
+            } else {
+              total += b.marketPriceItem.highestBuyOrder;
+            }
+            return total;
+          }, // For incoming requests we use highestBuyOrder
           0,
         );
 
@@ -393,9 +403,16 @@ export class TradeOfferService implements OnApplicationBootstrap {
           item: cEconItem,
           marketPriceItem,
         });
-        this.logger.log(
-          `Price checked item ${cEconItem.market_hash_name}: Price is H: ${marketPriceItem.highestBuyOrder} | L: ${marketPriceItem.lowestPrice}`,
-        );
+
+        if (Number.isNaN(marketPriceItem.highestBuyOrder)) {
+          this.logger.warn(
+            `Price checked item has no buy orders! ${marketPriceItem.lowestPrice}, ${marketPriceItem.lowestPrice}`,
+          );
+        } else {
+          this.logger.log(
+            `Price checked item ${cEconItem.market_hash_name}: Price is H: ${marketPriceItem.highestBuyOrder} | L: ${marketPriceItem.lowestPrice}`,
+          );
+        }
       } catch (e) {
         this.logger.warn('There was an issue price checking item!');
       } finally {
