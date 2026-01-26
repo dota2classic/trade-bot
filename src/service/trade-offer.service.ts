@@ -406,7 +406,7 @@ export class TradeOfferService implements OnApplicationBootstrap {
 
         if (Number.isNaN(marketPriceItem.highestBuyOrder)) {
           this.logger.warn(
-            `Price checked item has no buy orders! ${marketPriceItem.lowestPrice}, ${marketPriceItem.lowestPrice}`,
+            `Price checked item has no buy orders! ${marketPriceItem.highestBuyOrder}, ${marketPriceItem.lowestPrice}`,
           );
         } else {
           this.logger.log(
