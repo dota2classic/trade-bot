@@ -29,13 +29,5 @@ async function bootstrap() {
   SwaggerModule.setup('api', app, document);
 
   await app.listen(6100);
-
-  // for (let i = 0; i < 1; i++) {
-  //   await app
-  //     .get(ItemDropService)
-  //     .onMatchFinished(MatchmakingMode.UNRANKED, 44671, ['116514945']);
-  // }
-
-  // await app.get(UserService).claimDrops('116514945');
 }
 bootstrap();

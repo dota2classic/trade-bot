@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Currency, DOTA_APPID, ItemQualities, ItemQuality } from '../constant';
 import { MarketItemEntity } from '../entities/market-item.entity';
-import { Equal, In, MoreThan, Not, Repository } from 'typeorm';
+import { Equal, MoreThan, Not, Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import CEconItem from 'steamcommunity/classes/CEconItem';
 import { CMarketItem } from '../steamexts';
@@ -134,6 +134,7 @@ export class ItemPriceService {
       LIMIT 1
     `);
 
+    if (!res.length) return;
     const mitem = await this.marketItemEntityRepository.findOneBy({
       id: res[0].id,
     });

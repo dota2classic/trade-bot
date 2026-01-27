@@ -100,6 +100,10 @@ import { RateLimiter } from './service/rate-limiter.service';
               },
         );
 
+        // client.on('refreshToken', (tkn) => {
+        //   console.log(tkn);
+        // });
+
         const manager = new TradeOfferManager({
           steam: client,
           community: community,
