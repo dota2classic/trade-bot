@@ -118,7 +118,7 @@ export class ItemPriceService {
     );
   }
 
-  @Cron(CronExpression.EVERY_MINUTE)
+  // @Cron(CronExpression.EVERY_MINUTE)
   public async priceCheckInventoryItem() {
     if (!this.config.get('trade.scrape')) return;
 
