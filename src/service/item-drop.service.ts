@@ -126,7 +126,7 @@ export class ItemDropService {
     });
   }
 
-  // @Cron(CronExpression.EVERY_MINUTE)
+  @Cron(CronExpression.EVERY_MINUTE)
   public async expireDrops() {
     const del = await this.droppedItemEntityRepository
       .createQueryBuilder()

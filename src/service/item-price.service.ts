@@ -118,7 +118,7 @@ export class ItemPriceService {
     );
   }
 
-  // @Cron(CronExpression.EVERY_MINUTE)
+  @Cron(CronExpression.EVERY_MINUTE)
   public async priceCheckInventoryItem() {
     if (!this.config.get('trade.scrape')) return;
 
@@ -229,6 +229,9 @@ export class ItemPriceService {
     quantity: number,
     upsert: boolean,
   ) {
+    if (Number.isNaN(price)) {
+      return;
+    }
     let itemName = marketHashName;
     const first = marketHashName.split(' ')[0];
     let quality = ItemQualities.find((quality) => quality === first);
