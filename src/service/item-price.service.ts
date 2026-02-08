@@ -8,7 +8,6 @@ import { CMarketItem } from '../steamexts';
 import { Steam } from '../steam';
 import { MarketItemSelector } from '../util/marketHashToName';
 import { SearchResult } from '@dota2classic/steam-market';
-import { Cron, CronExpression } from '@nestjs/schedule';
 import { RateLimiter } from './rate-limiter.service';
 import { ConfigService } from '@nestjs/config';
 import { formatPrice } from '../util/formatPrice';
@@ -178,8 +177,9 @@ export class ItemPriceService {
   ): Promise<CMarketItem> => {
     return this.rl.enqueue(
       () =>
-        new Promise((resolve, reject) =>
-          this.steam.community.getMarketItem(
+        new Promise((resolve, reject) => {
+          this.logger.log(`Get market item by name '${name}'`);
+          return this.steam.community.getMarketItem(
             appId,
             name,
             Currency.RUB,
@@ -187,8 +187,8 @@ export class ItemPriceService {
               if (err) reject(err);
               else resolve(res as CMarketItem);
             },
-          ),
-        ),
+          );
+        }),
     );
   };
 
