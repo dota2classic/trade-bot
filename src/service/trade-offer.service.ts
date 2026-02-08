@@ -55,10 +55,10 @@ export class TradeOfferService implements OnApplicationBootstrap {
   ) {}
 
   async onApplicationBootstrap() {
-    await this.processOffers();
+    // await this.processOffers();
   }
 
-  @Cron(CronExpression.EVERY_MINUTE)
+  // @Cron(CronExpression.EVERY_MINUTE)
   public async processOffers() {
     if (!this.config.get('trade.scrape')) return;
 

@@ -33,7 +33,7 @@ export class ItemSellService implements OnApplicationBootstrap {
 
   async onApplicationBootstrap() {}
 
-  @Cron(CronExpression.EVERY_HOUR)
+  // @Cron(CronExpression.EVERY_HOUR)
   public async cancelBadSales() {
     if (!this.config.get('trade.scrape')) return;
 
@@ -87,7 +87,7 @@ export class ItemSellService implements OnApplicationBootstrap {
     this.logger.log('Checked for outdated trades.');
   }
 
-  @Cron(CronExpression.EVERY_5_MINUTES)
+  // @Cron(CronExpression.EVERY_5_MINUTES)
   public async trySellOutdatedItems() {
     if (!this.config.get('trade.scrape')) return;
 
