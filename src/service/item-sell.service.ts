@@ -28,7 +28,7 @@ export class ItemSellService implements OnApplicationBootstrap {
     private readonly itemPriceService: ItemPriceService,
     private readonly rl: RateLimiter,
   ) {
-    this.trySellOutdatedItems();
+    // this.trySellOutdatedItems();
   }
 
   async onApplicationBootstrap() {}

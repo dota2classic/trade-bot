@@ -24,7 +24,7 @@ export class ItemPriceService {
     private readonly rl: RateLimiter,
     private readonly config: ConfigService,
   ) {
-    this.priceCheckInventoryItem();
+    // this.priceCheckInventoryItem();
   }
 
   public async priceCheck2(item: MarketItemEntity) {
