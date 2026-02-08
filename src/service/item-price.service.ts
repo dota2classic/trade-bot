@@ -175,20 +175,21 @@ export class ItemPriceService {
     name: string,
     appId = DOTA_APPID,
   ): Promise<CMarketItem> => {
-    return this.rl.enqueue(
-      () =>
-        new Promise((resolve, reject) => {
-          this.logger.log(`Get market item by name '${name}'`);
-          return this.steam.community.getMarketItem(
-            appId,
-            name,
-            Currency.RUB,
-            (err, res) => {
-              if (err) reject(err);
-              else resolve(res as CMarketItem);
-            },
-          );
-        }),
+    return this.rl.enqueue(() =>
+      new Promise((resolve, reject) => {
+        this.logger.log(`Get market item by name '${name}'`);
+        return this.steam.community.getMarketItem(
+          appId,
+          name,
+          Currency.RUB,
+          (err, res) => {
+            if (err) reject(err);
+            else resolve(res as CMarketItem);
+          },
+        );
+      }).catch((e) => {
+        this.logger.error('Error from throttled call:', e);
+      }),
     );
   };
 
