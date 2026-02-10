@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Currency, DOTA_APPID, ItemQualities, ItemQuality } from '../constant';
 import { MarketItemEntity } from '../entities/market-item.entity';
-import { Equal, MoreThan, Not, Repository } from 'typeorm';
+import { Equal, Not, Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import CEconItem from 'steamcommunity/classes/CEconItem';
 import { CMarketItem } from '../steamexts';
@@ -55,6 +55,10 @@ export class ItemPriceService {
         break;
       }
       allListings.push(...result.results);
+
+      if (result.results.length < pageSize) {
+        break;
+      }
     }
 
     const actualQualities: (MarketItemSelector & {
@@ -92,6 +96,7 @@ export class ItemPriceService {
       })
       .filter(Boolean);
 
+    // Upsert existing qualities
     await Promise.all(
       actualQualities.map((t) =>
         this.updateItemMarketData(
@@ -106,8 +111,27 @@ export class ItemPriceService {
       ),
     );
 
+    // Update not found qualities
+    const missingQualities = ItemQualities.filter(
+      (quality) =>
+        actualQualities.findIndex((q) => q.quality === quality) === -1,
+    );
+    await Promise.all(
+      missingQualities.map((quality) =>
+        this.updateItemMarketData(
+          `${quality} ${item.marketHashName}`,
+          0,
+          item.type,
+          item.largeIcon,
+          item.smallIcon,
+          0,
+          false,
+        ),
+      ),
+    );
+
     this.logger.log(
-      `Successfully update some data about items ${actualQualities.length}. Total request: ${Math.ceil(allListings.length / pageSize)}`,
+      `Successfully update some data about items ${actualQualities.length}. Total request: ${Math.ceil(allListings.length / pageSize)}. ${missingQualities.length} missing qualities updated`,
     );
   }
 
