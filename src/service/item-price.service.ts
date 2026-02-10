@@ -10,7 +10,7 @@ import { MarketItemSelector } from '../util/marketHashToName';
 import { SearchResult } from '@dota2classic/steam-market';
 import { RateLimiter } from './rate-limiter.service';
 import { ConfigService } from '@nestjs/config';
-import { formatPrice } from '../util/formatPrice';
+import { Cron, CronExpression } from '@nestjs/schedule';
 
 @Injectable()
 export class ItemPriceService {
@@ -26,7 +26,7 @@ export class ItemPriceService {
     // this.priceCheckInventoryItem();
   }
 
-  public async priceCheck2(item: MarketItemEntity) {
+  public async extendedPriceCheck(item: MarketItemEntity) {
     const qualities = ItemQualities.map((t) => {
       if (t === ItemQuality.Standard) {
         return '';
@@ -89,20 +89,12 @@ export class ItemPriceService {
       })
       .filter(Boolean);
 
-    // First, delete all that are not present
-    // const deletion = await this.marketItemEntityRepository.delete({
-    //   marketHashName: item.marketHashName,
-    //   quality: Not(In(actualQualities.map((t) => t.quality))),
-    // });
-    // this.logger.log(
-    //   `Delete ${deletion.affected} non existing market items for ${item.marketHashName}`,
-    // );
-
     await Promise.all(
       actualQualities.map((t) =>
         this.updateItemMarketData(
           `${t.quality} ${t.marketHashName}`,
           t.sellPrice,
+          undefined,
           t.type,
           undefined,
           t.iconUrl,
@@ -117,7 +109,7 @@ export class ItemPriceService {
     );
   }
 
-  // @Cron(CronExpression.EVERY_MINUTE)
+  @Cron(CronExpression.EVERY_MINUTE)
   public async priceCheckInventoryItem() {
     if (!this.config.get('trade.scrape')) return;
 
@@ -138,7 +130,7 @@ export class ItemPriceService {
       id: res[0].id,
     });
 
-    await this.priceCheck2(mitem);
+    await this.extendedPriceCheck(mitem);
   }
 
   // @Cron(CronExpression.EVERY_5_MINUTES)
@@ -148,7 +140,7 @@ export class ItemPriceService {
     const indexed = await this.marketItemEntityRepository.count({
       where: {
         quantity: MoreThan(0),
-        price: Not(Equal(-1)),
+        sellPrice: Not(Equal(-1)),
       },
     });
     this.logger.log(
@@ -161,7 +153,7 @@ export class ItemPriceService {
       take: 1,
     });
 
-    await Promise.all(toCheck.map((item) => this.priceCheck2(item)));
+    await Promise.all(toCheck.map((item) => this.extendedPriceCheck(item)));
   }
 
   public getMarketItem = async (
@@ -239,18 +231,56 @@ export class ItemPriceService {
     return Math.ceil(priceToSell * 0.87);
   };
 
-  public async updateItemMarketData(
+  public async calculatePrices(item: CMarketItem) {
+    const highestBuy = item.highestBuyOrder || undefined;
+    const lowestSell = item.lowestPrice ?? null;
+
+    const historicalData = item.medianSalePrices
+      .reverse()
+      .filter((t) => t.quantity > 1)
+      .slice(0, 100);
+
+    const fairPrice = historicalData.map((a) => a.price * 100).sort()[
+      Math.floor(historicalData.length / 2)
+    ];
+
+    const buyPrice = Math.min(fairPrice, highestBuy);
+    const sellPrice = Math.max(fairPrice, lowestSell);
+
+    this.logger.log(
+      `CMarketItem ${item._hashName}: H=${highestBuy}, L=${lowestSell}, F=${fairPrice}`,
+    );
+
+    return {
+      buyPrice,
+      sellPrice,
+    };
+  }
+
+  public async handleMarketItem(fullName: string, item: CMarketItem) {
+    const { buyPrice, sellPrice } = await this.calculatePrices(item);
+    await this.updateItemMarketData(
+      fullName,
+      buyPrice,
+      sellPrice,
+      item.firstAsset?.type,
+      item.firstAsset?.icon_url_large,
+      item.firstAsset?.icon_url,
+      item.quantity,
+      true,
+    );
+  }
+
+  private async updateItemMarketData(
     marketHashName: string,
-    price: number,
+    buyPrice: number | undefined,
+    sellPrice: number | undefined,
     type: string | undefined,
     largeIcon: string | undefined,
     smallIcon: string | undefined,
     quantity: number,
     upsert: boolean,
   ) {
-    if (Number.isNaN(price)) {
-      return;
-    }
     let itemName = marketHashName;
     const first = marketHashName.split(' ')[0];
     let quality = ItemQualities.find((quality) => quality === first);
@@ -261,13 +291,22 @@ export class ItemPriceService {
     }
 
     this.logger.log(
-      `Update market data for ${quality} ${itemName}: P: ${formatPrice(price)}, Q: ${quantity}`,
+      `Update market data for ${quality} ${itemName}: ${{
+        marketHashName,
+        buyPrice,
+        sellPrice,
+        type,
+        largeIcon,
+        smallIcon,
+        quantity,
+      }}`,
     );
 
     if (upsert) {
       await this.marketItemEntityRepository.upsert(
         {
-          price,
+          sellPrice,
+          buyPrice,
           type,
           quantity,
           largeIcon,
@@ -285,7 +324,8 @@ export class ItemPriceService {
           quality: quality,
         },
         {
-          price,
+          sellPrice,
+          buyPrice,
           type,
           quantity,
           largeIcon,

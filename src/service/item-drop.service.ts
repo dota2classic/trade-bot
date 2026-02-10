@@ -5,7 +5,6 @@ import { DOTA_APPID, ItemQuality, ItemRarity } from '../constant';
 import { CEconItem } from '../steamexts';
 import { InventoryItemEntity } from '../entities/inventory-item.entity';
 import { marketHashToSelectorName } from '../util/marketHashToName';
-import { Cron, CronExpression } from '@nestjs/schedule';
 import { toMarketHashNameParts } from '../util/marketHashName';
 import { ItemPriceService } from './item-price.service';
 import { DroppedItemEntity } from '../entities/dropped-item.entity';
@@ -185,14 +184,9 @@ export class ItemDropService {
       `Restock tier ${toPurchase.tier} with ${hashName}: ${toPurchase.tier_stock} / ${toPurchase.expected_stock}. Buying one for ${fairPrice}`,
     );
 
-    await this.itemPriceService.updateItemMarketData(
+    await this.itemPriceService.handleMarketItem(
       marketItem._hashName,
-      marketItem.lowestPrice,
-      marketItem.firstAsset?.type,
-      marketItem.firstAsset?.icon_url_large,
-      marketItem.firstAsset?.icon_url,
-      marketItem.quantity,
-      true,
+      marketItem,
     );
 
     let r: CreateBuyOrder = await this.rl.enqueueMarket(() =>

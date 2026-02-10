@@ -5,6 +5,8 @@ import { WinstonWrapper } from '@dota2classic/nest_logger';
 import { ConfigService } from '@nestjs/config';
 import configuration from './config/configuration';
 
+require('dotenv').config();
+
 async function bootstrap() {
   const parsedConfig = configuration();
   const config = new ConfigService(parsedConfig);

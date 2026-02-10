@@ -20,7 +20,6 @@ import { TradeOfferItemEntity } from '../entities/trade-offer-item.entity';
 import { UserMarketBalanceEntity } from '../entities/user-market-balance.entity';
 import { wait } from '../util/wait';
 import { DroppedItemEntity } from '../entities/dropped-item.entity';
-import { Cron, CronExpression } from '@nestjs/schedule';
 import { FindOptionsWhere } from 'typeorm/find-options/FindOptionsWhere';
 import { InventoryItemEntity } from '../entities/inventory-item.entity';
 import { AmqpConnection } from '@golevelup/nestjs-rabbitmq';
@@ -58,7 +57,7 @@ export class TradeOfferService implements OnApplicationBootstrap {
     // await this.processOffers();
   }
 
-  @Cron(CronExpression.EVERY_MINUTE)
+  // @Cron(CronExpression.EVERY_MINUTE)
   public async processOffers() {
     if (!this.config.get('trade.scrape')) return;
 

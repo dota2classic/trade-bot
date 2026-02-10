@@ -40,12 +40,21 @@ export class MarketItemEntity {
   })
   updated: Date;
 
+  // At what price can we sell this item(highestBuyOrder)
   @Column({
-    name: 'price',
+    name: 'sell_price',
     type: 'int',
     default: -1,
   })
-  price: number;
+  sellPrice: number;
+
+  // At what price can we buy this item(lowestSellOrder)
+  @Column({
+    name: 'buy_price',
+    type: 'int',
+    default: -1,
+  })
+  buyPrice: number;
 
   @Column({
     name: 'quantity',
