@@ -276,7 +276,7 @@ export class ItemPriceService {
       order: {
         updated: 'ASC',
       },
-      take: 1,
+      take: 3,
     });
   }
 }
