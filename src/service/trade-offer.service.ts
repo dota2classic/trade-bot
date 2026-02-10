@@ -417,6 +417,7 @@ export class TradeOfferService implements OnApplicationBootstrap {
         }
       } catch (e) {
         this.logger.warn('There was an issue price checking item!');
+        console.error(e)
       } finally {
         await wait(3000);
       }
