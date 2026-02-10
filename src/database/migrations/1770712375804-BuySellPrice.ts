@@ -11,7 +11,7 @@ export class BuySellPrice1770712375804 implements MigrationInterface {
       `ALTER TABLE "market_item" ADD "buy_price" integer NOT NULL DEFAULT '-1'`,
     );
     await queryRunner.query(
-      `UPDATE "market_item" SET "buy_price" = greatest(buy_price, "sell_price" * 1.1) `,
+      `UPDATE "market_item" SET "buy_price" = greatest(buy_price, sell_price + 1, "sell_price" * 1.1) `,
     );
     await queryRunner.query(
       `ALTER TABLE "market_item"
