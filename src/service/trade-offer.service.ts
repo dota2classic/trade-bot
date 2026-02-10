@@ -55,7 +55,7 @@ export class TradeOfferService implements OnApplicationBootstrap {
   ) {}
 
   async onApplicationBootstrap() {
-    await this.processOffers();
+    // await this.processOffers();
   }
 
   @Cron(CronExpression.EVERY_MINUTE)
@@ -246,24 +246,25 @@ export class TradeOfferService implements OnApplicationBootstrap {
     );
     const marketItems = await this.priceCheckItems(offer.itemsToReceive);
 
-    // Update prices of our patch items
-    await Promise.all(
-      marketItems
-        .filter((item) => !Number.isNaN(item.marketPriceItem.highestBuyOrder))
-        .map(async (item) => {
-          await this.itemPriceService.updateItemMarketData(
-            item.marketPriceItem._hashName,
-            item.marketPriceItem.highestBuyOrder,
-            item.marketPriceItem.firstAsset?.type,
-            item.marketPriceItem.firstAsset?.icon_url_large,
-            item.marketPriceItem.firstAsset?.icon_url,
-            item.marketPriceItem.quantity,
-            false,
-          );
-        }),
-    );
-
-    await this.saveAcceptedTradeOffer(offer, marketItems);
+    this.logger.log('Pricechecked all items', marketItems.length);
+    // // Update prices of our patch items
+    // await Promise.all(
+    //   marketItems
+    //     .filter((item) => !Number.isNaN(item.marketPriceItem.highestBuyOrder))
+    //     .map(async (item) => {
+    //       await this.itemPriceService.updateItemMarketData(
+    //         item.marketPriceItem._hashName,
+    //         item.marketPriceItem.highestBuyOrder,
+    //         item.marketPriceItem.firstAsset?.type,
+    //         item.marketPriceItem.firstAsset?.icon_url_large,
+    //         item.marketPriceItem.firstAsset?.icon_url,
+    //         item.marketPriceItem.quantity,
+    //         false,
+    //       );
+    //     }),
+    // );
+    //
+    // await this.saveAcceptedTradeOffer(offer, marketItems);
   }
 
   // Called on new accepted trade offer
