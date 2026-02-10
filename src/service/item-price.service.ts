@@ -168,20 +168,20 @@ export class ItemPriceService {
     item: CEconItem,
     appId = DOTA_APPID,
   ): Promise<CMarketItem> => {
-    // return this.getMarketItemByName(item.market_hash_name, appId);
-    return new Promise((resolve, reject) => {
-      const name = item.market_hash_name;
-      this.logger.log(`Get market item by name '${name}'`);
-      return this.steam.community.getMarketItem(
-        appId,
-        name,
-        Currency.RUB,
-        (err, res) => {
-          if (err) reject(err);
-          else resolve(res as CMarketItem);
-        },
-      );
-    });
+    return this.getMarketItemByName(item.market_hash_name, appId);
+    // return new Promise((resolve, reject) => {
+    //   const name = item.market_hash_name;
+    //   this.logger.log(`Get market item by name '${name}'`);
+    //   return this.steam.community.getMarketItem(
+    //     appId,
+    //     name,
+    //     Currency.RUB,
+    //     (err, res) => {
+    //       if (err) reject(err);
+    //       else resolve(res as CMarketItem);
+    //     },
+    //   );
+    // });
   };
 
   public getMarketItemByName = async (
