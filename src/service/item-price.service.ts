@@ -170,6 +170,7 @@ export class ItemPriceService {
   ): Promise<CMarketItem> => {
     // return this.getMarketItemByName(item.market_hash_name, appId);
     return new Promise((resolve, reject) => {
+      const name = item.market_hash_name;
       this.logger.log(`Get market item by name '${name}'`);
       return this.steam.community.getMarketItem(
         appId,
