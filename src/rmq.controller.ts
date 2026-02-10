@@ -20,6 +20,7 @@ export class RmqController {
     errorBehavior: MessageHandlerErrorBehavior.ACK,
   })
   async GameResultsEvent(data: GameResultsEvent) {
+    return;
     await this.itemDropService.onMatchFinished(
       data.type,
       data.matchId,
@@ -35,6 +36,7 @@ export class RmqController {
     queue: `trade-queue.${PlayerFinishedMatchEvent.name}`,
   })
   async PlayerFinishedMatchEvent(data: PlayerFinishedMatchEvent) {
+    return;
     if (
       data.unrankedGamesCount === 2 &&
       data.lobbyType === MatchmakingMode.UNRANKED
