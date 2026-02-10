@@ -291,15 +291,19 @@ export class ItemPriceService {
     }
 
     this.logger.log(
-      `Update market data for ${quality} ${itemName}: ${{
-        marketHashName,
-        buyPrice,
-        sellPrice,
-        type,
-        largeIcon,
-        smallIcon,
-        quantity,
-      }}`,
+      `Update market data for ${quality} ${itemName}: ${JSON.stringify(
+        {
+          marketHashName,
+          buyPrice,
+          sellPrice,
+          type,
+          largeIcon,
+          smallIcon,
+          quantity,
+        },
+        null,
+        2,
+      )}`,
     );
 
     if (upsert) {
