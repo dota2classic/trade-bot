@@ -47,7 +47,7 @@ export class TradeMapper {
   public mapMarketItem = (item: MarketItemEntity): MarketItemDto => ({
     marketHashName: item.marketHashName,
     quality: item.quality,
-    price: item.buyPrice,
+    price: item.price,
     type: item.type,
     icon: item.largeIcon || item.smallIcon,
     rarity: this.mapRarity(item.type),
