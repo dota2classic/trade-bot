@@ -201,6 +201,8 @@ export class ItemPriceService {
       .filter((t) => t.quantity > 1)
       .slice(0, 100);
 
+    this.logger.log(`Historical data for item ${name}:`, historicalData);
+
     const fairPrice = historicalData.map((a) => a.price * 100).sort()[
       Math.floor(historicalData.length / 2)
     ];
