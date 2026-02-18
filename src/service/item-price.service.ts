@@ -201,19 +201,19 @@ export class ItemPriceService {
       .filter((t) => t.quantity > 1)
       .slice(0, 60);
 
-    const avgPrice = historicalData
-      .map((t) => t.price)
-      .reduce((a, b) => a + b, 0);
+    const avgPrice =
+      historicalData.map((t) => t.price).reduce((a, b) => a + b, 0) /
+      historicalData.length;
 
-    const fairPrice = historicalData.map((a) => a.price).sort()[
+    const medianPrice = historicalData.map((a) => a.price).sort((a, b) => a - b)[
       Math.floor(historicalData.length / 2)
     ];
 
     this.logger.log(
-      `Sell Info in last 60 entries for item ${name}. Lowest RN=${mitem.lowestPrice}, AVG=${avgPrice}, Median=${fairPrice}`,
+      `Sell Info in last 60 entries for item ${name}. Lowest RN=${mitem.lowestPrice}, AVG=${avgPrice}, Median=${medianPrice}`,
     );
 
-    const priceToSell = Math.max(basePrice, fairPrice);
+    const priceToSell = Math.max(basePrice, medianPrice);
     return Math.ceil(priceToSell * 0.87);
   };
 
