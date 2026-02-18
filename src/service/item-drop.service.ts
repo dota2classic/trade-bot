@@ -24,6 +24,7 @@ import { weightedRandom } from '../util/pickWeightedRandom';
 import { ConfigService } from '@nestjs/config';
 import { ItemDropLogEntity } from '../entities/item-drop-log.entity';
 import { wait } from '../util/wait';
+import { Cron, CronExpression } from '@nestjs/schedule';
 
 interface ItemToBuy {
   market_hash_name: string;
@@ -64,7 +65,7 @@ export class ItemDropService {
     private readonly config: ConfigService,
   ) {}
 
-  // @Cron(CronExpression.EVERY_6_HOURS)
+  @Cron(CronExpression.EVERY_6_HOURS)
   public async clearBuyOrders() {
     if (!this.config.get('trade.scrape')) return;
     const listings = await this.rl.enqueue(() =>
@@ -78,7 +79,7 @@ export class ItemDropService {
     }
   }
 
-  // @Cron(CronExpression.EVERY_10_MINUTES)
+  @Cron(CronExpression.EVERY_10_MINUTES)
   public async synchronizeInventory() {
     if (!this.config.get('trade.scrape')) return;
     const res = await new Promise<CEconItem[]>((resolve, reject) => {
@@ -125,7 +126,7 @@ export class ItemDropService {
     });
   }
 
-  // @Cron(CronExpression.EVERY_MINUTE)
+  @Cron(CronExpression.EVERY_MINUTE)
   public async expireDrops() {
     const del = await this.droppedItemEntityRepository
       .createQueryBuilder()
@@ -138,7 +139,7 @@ export class ItemDropService {
     this.logger.log(`Expired ${del.affected} items`);
   }
 
-  // @Cron(CronExpression.EVERY_5_MINUTES)
+  @Cron(CronExpression.EVERY_5_MINUTES)
   public async replenishStock() {
     if (!this.config.get('trade.scrape')) return;
 

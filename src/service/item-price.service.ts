@@ -300,7 +300,7 @@ export class ItemPriceService {
       order: {
         updated: 'ASC',
       },
-      take: 3,
+      take: 1,
     });
   }
 }
