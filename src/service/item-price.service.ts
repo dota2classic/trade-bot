@@ -199,16 +199,18 @@ export class ItemPriceService {
     const historicalData = mitem.medianSalePrices
       .reverse()
       .filter((t) => t.quantity > 1)
-      .slice(0, 100);
+      .slice(0, 60);
 
-    this.logger.log(`Historical data for item ${name}:`, historicalData);
+    const avgPrice = historicalData
+      .map((t) => t.price)
+      .reduce((a, b) => a + b, 0);
 
-    const fairPrice = historicalData.map((a) => a.price * 100).sort()[
+    const fairPrice = historicalData.map((a) => a.price).sort()[
       Math.floor(historicalData.length / 2)
     ];
 
     this.logger.log(
-      `Lowest price: ${mitem.lowestPrice}, calculated: ${fairPrice}`,
+      `Sell Info in last 60 entries for item ${name}. Lowest RN=${mitem.lowestPrice}, AVG=${avgPrice}, Median=${fairPrice}`,
     );
 
     const priceToSell = Math.max(basePrice, fairPrice);
