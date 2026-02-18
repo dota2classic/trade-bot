@@ -181,7 +181,7 @@ export class ItemPriceService {
   };
 
   /**
-   * At what price should be sell this item?
+   * At what price should we sell this item?
    * @param name
    * @param appid
    */

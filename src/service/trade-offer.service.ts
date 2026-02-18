@@ -10,7 +10,7 @@ import { EOfferFilter } from 'steam-tradeoffer-manager';
 import CEconItem from 'steamcommunity/classes/CEconItem';
 import TradeOffer from 'steam-tradeoffer-manager/lib/classes/TradeOffer';
 import { Steam } from '../steam';
-import { CMarketItem, TradeOfferRawJson } from '../steamexts';
+import { TradeOfferRawJson } from '../steamexts';
 import { MarketItemEntity } from '../entities/market-item.entity';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, In, Repository } from 'typeorm';
@@ -25,10 +25,11 @@ import { InventoryItemEntity } from '../entities/inventory-item.entity';
 import { AmqpConnection } from '@golevelup/nestjs-rabbitmq';
 import { TradeOfferExpiredEvent } from '../gateway/events/trade-offer-expired.event';
 import { ConfigService } from '@nestjs/config';
+import { Cron, CronExpression } from '@nestjs/schedule';
 
 interface PricedItem {
   item: CEconItem;
-  marketPriceItem: CMarketItem;
+  fairPrice: number;
 }
 
 @Injectable()
@@ -57,7 +58,7 @@ export class TradeOfferService implements OnApplicationBootstrap {
     // await this.processOffers();
   }
 
-  // @Cron(CronExpression.EVERY_MINUTE)
+  @Cron(CronExpression.EVERY_MINUTE)
   public async processOffers() {
     if (!this.config.get('trade.scrape')) return;
 
@@ -186,8 +187,8 @@ export class TradeOfferService implements OnApplicationBootstrap {
             new TradeOfferItemEntity(
               tradeOffer.id,
               t.item.assetid.toString(),
-              t.marketPriceItem._hashName,
-              t.marketPriceItem.lowestPrice,
+              t.item.market_hash_name,
+              t.fairPrice,
             ),
         ),
       );
@@ -205,7 +206,9 @@ export class TradeOfferService implements OnApplicationBootstrap {
       // Donation?
       if (offer.itemsToGive.length === 0) {
         await this.acceptTradeOffer(offer);
-        this.logger.log(`Handled active donation offer: status is ${status}`);
+        this.logger.log(
+          `Handled active donation offer: status is ${offer.state}`,
+        );
         return;
       } else {
         // We do not give items in received orders
@@ -245,34 +248,18 @@ export class TradeOfferService implements OnApplicationBootstrap {
     );
     const marketItems = await this.priceCheckItems(offer.itemsToReceive);
 
-    this.logger.log('Pricechecked all items', marketItems.length);
-    // // Update prices of our patch items
-    // await Promise.all(
-    //   marketItems
-    //     .filter((item) => !Number.isNaN(item.marketPriceItem.highestBuyOrder))
-    //     .map(async (item) => {
-    //       await this.itemPriceService.updateItemMarketData(
-    //         item.marketPriceItem._hashName,
-    //         item.marketPriceItem.highestBuyOrder,
-    //         item.marketPriceItem.firstAsset?.type,
-    //         item.marketPriceItem.firstAsset?.icon_url_large,
-    //         item.marketPriceItem.firstAsset?.icon_url,
-    //         item.marketPriceItem.quantity,
-    //         false,
-    //       );
-    //     }),
-    // );
-    //
-    // await this.saveAcceptedTradeOffer(offer, marketItems);
+    const priceMapping = marketItems
+      .map((item) => `${item.item.market_hash_name}: ${item.fairPrice}`)
+      .join('; ');
+    this.logger.log('Price checked all items', priceMapping);
+
+    await this.saveAcceptedTradeOffer(offer, marketItems);
   }
 
   // Called on new accepted trade offer
   private async saveAcceptedTradeOffer(
     tradeOffer: TradeOffer,
-    items: {
-      item: CEconItem;
-      marketPriceItem: CMarketItem;
-    }[],
+    items: PricedItem[],
   ) {
     const steamId = tradeOffer.partner.accountid.toString();
     await this.ds
@@ -294,8 +281,8 @@ export class TradeOfferService implements OnApplicationBootstrap {
             new TradeOfferItemEntity(
               offer.id,
               it.item.assetid.toString(),
-              it.marketPriceItem._hashName,
-              it.marketPriceItem.lowestPrice,
+              it.item.market_hash_name,
+              it.fairPrice,
             ),
         );
         await tx.save(TradeOfferItemEntity, tradedItems);
@@ -303,13 +290,7 @@ export class TradeOfferService implements OnApplicationBootstrap {
         // Count total traded amount
         const totalTradedBalance = items.reduce(
           (a, b) => {
-            let total = a;
-            if (Number.isNaN(b.marketPriceItem.highestBuyOrder)) {
-              total += b.marketPriceItem.lowestPrice * 0.9;
-            } else {
-              total += b.marketPriceItem.highestBuyOrder;
-            }
-            return total;
+            return a + b.fairPrice;
           }, // For incoming requests we use highestBuyOrder
           0,
         );
@@ -396,24 +377,18 @@ export class TradeOfferService implements OnApplicationBootstrap {
     // Price check them
     for (const cEconItem of items) {
       try {
-        const marketPriceItem = await this.itemPriceService.getMarketItem(
-          cEconItem,
+        const sellPrice = await this.itemPriceService.getSellPrice(
+          cEconItem.market_hash_name,
           cEconItem.appid,
         );
         marketItems.push({
           item: cEconItem,
-          marketPriceItem,
+          fairPrice: sellPrice,
         });
 
-        if (Number.isNaN(marketPriceItem.highestBuyOrder)) {
-          this.logger.warn(
-            `Price checked item has no buy orders! ${marketPriceItem.highestBuyOrder}, ${marketPriceItem.lowestPrice}`,
-          );
-        } else {
-          this.logger.log(
-            `Price checked item ${cEconItem.market_hash_name}: Price is H: ${marketPriceItem.highestBuyOrder} | L: ${marketPriceItem.lowestPrice}`,
-          );
-        }
+        this.logger.log(
+          `Price checked item ${cEconItem.market_hash_name}. Fair price is: ${sellPrice}}`,
+        );
       } catch (e) {
         this.logger.warn('There was an issue price checking item!');
         console.error(e);
