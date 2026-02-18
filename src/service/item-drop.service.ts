@@ -341,6 +341,9 @@ order by tier_missing::float / greatest(1, expected_tier_stock) desc, missing de
 
   public async dropItem(player: string, matchId: number | null) {
     const drop = await this.pickItemDrop();
+    if (!drop) {
+      this.logger.error('No item to drop! Returning early');
+    }
     await this.saveDroppedItem(
       drop.asset_id,
       matchId,
