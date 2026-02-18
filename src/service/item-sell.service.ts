@@ -149,6 +149,7 @@ export class ItemSellService implements OnApplicationBootstrap {
           contextId: 2,
         }),
       );
+      this.logger.log('Sell item response: ', result);
       if (result.success) {
         this.logger.log('Successfully listed item for sale');
       } else {

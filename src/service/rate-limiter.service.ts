@@ -33,6 +33,7 @@ export class RateLimiter {
         this.logger.warn('Rate limited!', typeof e);
         console.error(e.message);
         console.error(e.response.data);
+        return e.response;
       });
     });
   }
