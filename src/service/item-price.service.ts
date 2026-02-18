@@ -201,20 +201,25 @@ export class ItemPriceService {
       .filter((t) => t.quantity > 1)
       .slice(0, 60);
 
+
+    // Prices in historical data are in RUB e.g. (3.23 instead of 323, 9.99 instead of 999)
     const avgPrice =
-      historicalData.map((t) => t.price).reduce((a, b) => a + b, 0) /
+      (100 * historicalData.map((t) => t.price).reduce((a, b) => a + b, 0)) /
       historicalData.length;
 
-    const medianPrice = historicalData.map((a) => a.price).sort((a, b) => a - b)[
-      Math.floor(historicalData.length / 2)
-    ];
+    const medianPrice =
+      100 *
+      historicalData.map((a) => a.price).sort((a, b) => a - b)[
+        Math.floor(historicalData.length / 2)
+      ];
 
     this.logger.log(
       `Sell Info in last 60 entries for item ${name}. Lowest RN=${mitem.lowestPrice}, AVG=${avgPrice}, Median=${medianPrice}`,
     );
 
-    const priceToSell = Math.max(basePrice, medianPrice);
-    return Math.ceil(priceToSell * 0.87);
+    const priceToSell = Math.max(basePrice, medianPrice, avgPrice);
+    // return Math.ceil(priceToSell * 0.87);
+    return priceToSell;
   };
 
   public async handleMarketItem(fullName: string, item: CMarketItem) {
