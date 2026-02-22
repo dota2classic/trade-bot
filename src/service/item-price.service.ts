@@ -49,7 +49,8 @@ export class ItemPriceService {
         }),
       );
       if (!result.success) {
-        this.logger.warn('Issue resolving qualities', result);
+        this.logger.warn('There was an issue resolving qualities. Returning.');
+        return;
       }
       if (result.results.length === 0) {
         break;
