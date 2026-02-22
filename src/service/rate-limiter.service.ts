@@ -31,8 +31,7 @@ export class RateLimiter {
     return this.throttle(async () => {
       return apiCall().catch((e: AxiosError) => {
         this.logger.warn('Rate limited!', typeof e);
-        console.error(e.message);
-        console.error(e.response.data);
+        this.logger.warn(`Status: ${e.status}, ${e.cause} ${e.code}`);
         return e.response;
       });
     });
