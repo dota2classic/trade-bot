@@ -218,8 +218,7 @@ export class ItemPriceService {
     );
 
     const priceToSell = Math.max(basePrice, medianPrice, avgPrice);
-    // return Math.ceil(priceToSell * 0.87);
-    return priceToSell;
+    return Math.ceil(priceToSell * 0.87);
   };
 
   public async handleMarketItem(fullName: string, item: CMarketItem) {
