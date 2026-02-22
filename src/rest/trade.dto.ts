@@ -11,6 +11,10 @@ export class UpdateUserDto {
   tradeLink: string;
 }
 
+export class DropItemDto {
+  tierId: number;
+}
+
 export class MarketItemDto {
   marketHashName: string;
 

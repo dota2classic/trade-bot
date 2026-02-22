@@ -339,8 +339,12 @@ order by tier_missing::float / greatest(1, expected_tier_stock) desc, missing de
     return this.ds.query<ItemToBuy[]>(q);
   }
 
-  public async dropItem(player: string, matchId: number | null) {
-    const drop = await this.pickItemDrop();
+  public async dropItem(
+    player: string,
+    matchId: number | null,
+    tierId?: number,
+  ) {
+    const drop = await this.pickItemDrop(tierId);
     if (!drop) {
       this.logger.error('No item to drop! Returning early');
     }
@@ -389,7 +393,7 @@ order by tier_missing::float / greatest(1, expected_tier_stock) desc, missing de
     }
   }
 
-  private async pickItemDrop(): Promise<
+  private async pickItemDrop(tierId?: number): Promise<
     | {
         asset_id: string;
         quality: ItemQuality;
@@ -403,7 +407,9 @@ order by tier_missing::float / greatest(1, expected_tier_stock) desc, missing de
   > {
     const tiers = await this.itemDropTierEntityRepository.find();
 
-    const chosenTier = weightedRandom(tiers);
+    const chosenTier = tierId
+      ? tiers.find((t) => t.id === tierId)!
+      : weightedRandom(tiers);
 
     this.logger.log(
       `Weighted random tier: ${chosenTier.minPrice} <= price < ${chosenTier.maxPrice}`,

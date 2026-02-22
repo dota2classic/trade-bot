@@ -17,6 +17,7 @@ import { UserMarketBalanceEntity } from '../entities/user-market-balance.entity'
 import { TradeMapper } from './trade.mapper';
 import {
   CreateDropTierDto,
+  DropItemDto,
   DropSettingsDto,
   PurchaseDto,
   UpdateDropSettingsDto,
@@ -107,8 +108,11 @@ export class TradeController {
   }
 
   @Post('drops/:steamId')
-  public async dropItem(@Param('steamId') steamId: string) {
-    await this.dropService.dropItem(steamId, null);
+  public async dropItem(
+    @Param('steamId') steamId: string,
+    @Body() dto: DropItemDto,
+  ) {
+    await this.dropService.dropItem(steamId, null, dto.tierId);
   }
 
   // Ask for a trade request
