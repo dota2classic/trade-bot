@@ -3,6 +3,7 @@ import { AppModule } from './app.module';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
 import configuration from './config/configuration';
+import './util/virtual-column';
 
 require('dotenv').config();
 

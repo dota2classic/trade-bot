@@ -21,6 +21,7 @@ import { TradeOfferEntity } from '../entities/trade-offer.entity';
 import { ItemDropTierEntity } from '../entities/item-drop-tier.entity';
 import { DropSettingsEntity } from '../entities/drop-settings.entity';
 import { ItemDropService } from '../service/item-drop.service';
+import { InventoryItemEntity } from '../entities/inventory-item.entity';
 
 @Controller('trade')
 @ApiTags('trade')
@@ -31,8 +32,6 @@ export class TradeController {
     private readonly mapper: TradeMapper,
     private readonly userService: UserService,
     private readonly dropService: ItemDropService,
-    @InjectRepository(MarketItemEntity)
-    private readonly marketItemEntityRepository: Repository<MarketItemEntity>,
     @InjectRepository(UserMarketBalanceEntity)
     private readonly userMarketBalanceEntityRepository: Repository<UserMarketBalanceEntity>,
     @InjectRepository(DroppedItemEntity)
@@ -135,23 +134,25 @@ export class TradeController {
   // Tier CRUD
   @Get('tiers')
   public async getDropTiers() {
-    const tiers = await this.itemDropTierEntityRepository.find();
+    const tiers = await this.itemDropTierEntityRepository
+      .createQueryBuilder('tier')
+      .addSelect(
+        (qb) =>
+          qb
+            .select('COUNT(*)')
+            .from(InventoryItemEntity, 'inv')
+            .innerJoin(
+              MarketItemEntity,
+              'item',
+              'item.marketHashName = inv.marketHashName',
+            )
+            .where('item.price >= tier.price_min')
+            .andWhere('item.price < tier.price_max'),
+        'count',
+      )
+      .getMany();
 
-    return Promise.all(
-      tiers.map(async (tier) => {
-        const result = await this.marketItemEntityRepository
-          .createQueryBuilder('item')
-          .select('COALESCE(SUM(item.quantity), 0)', 'count')
-          .where('item.price >= :minPrice', { minPrice: tier.minPrice })
-          .andWhere('item.price <= :maxPrice', { maxPrice: tier.maxPrice })
-          .getRawOne();
-
-        return {
-          ...this.mapper.mapTier(tier),
-          count: parseInt(result.count, 10),
-        };
-      }),
-    );
+    return tiers.map(this.mapper.mapTier);
   }
 
   @Post('tiers')

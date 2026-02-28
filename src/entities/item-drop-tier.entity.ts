@@ -1,4 +1,5 @@
 import { Column, Entity, PrimaryGeneratedColumn } from 'typeorm';
+import { VirtualColumn2 } from '../util/virtual-column';
 
 @Entity('item_drop_tier')
 export class ItemDropTierEntity {
@@ -22,5 +23,7 @@ export class ItemDropTierEntity {
     type: 'float',
   })
   weight: number;
-}
 
+  @VirtualColumn2('count', (v) => parseInt(v) || 0)
+  count?: number;
+}

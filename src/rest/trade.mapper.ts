@@ -66,5 +66,6 @@ export class TradeMapper {
     minPrice: tier.minPrice,
     maxPrice: tier.maxPrice,
     weight: tier.weight,
+    count: tier.count ?? 0,
   });
 }
