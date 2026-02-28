@@ -59,6 +59,7 @@ export class DropTierDto {
   maxPrice: number;
   id: number;
   weight: number;
+  count: number;
 }
 
 export class UpdateDropTierDto {

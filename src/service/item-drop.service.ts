@@ -179,7 +179,7 @@ export class ItemDropService {
       );
       return;
     }
-    const fairPrice = Math.floor(marketItem.highestBuyOrder * 0.95);
+    const fairPrice = Math.floor(marketItem.highestBuyOrder * 0.98);
 
     this.logger.log(
       `Restock tier ${toPurchase.tier} with ${hashName}: ${toPurchase.tier_stock} / ${toPurchase.expected_stock}. Buying one for ${fairPrice}`,

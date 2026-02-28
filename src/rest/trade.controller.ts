@@ -1,14 +1,4 @@
-import {
-  Body,
-  Controller,
-  Delete,
-  Get,
-  Logger,
-  Param,
-  ParseIntPipe,
-  Patch,
-  Post,
-} from '@nestjs/common';
+import { Body, Controller, Delete, Get, Logger, Param, ParseIntPipe, Patch, Post, } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { IsNull, Not, Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -145,9 +135,23 @@ export class TradeController {
   // Tier CRUD
   @Get('tiers')
   public async getDropTiers() {
-    return this.itemDropTierEntityRepository
-      .find()
-      .then((all) => all.map(this.mapper.mapTier));
+    const tiers = await this.itemDropTierEntityRepository.find();
+
+    return Promise.all(
+      tiers.map(async (tier) => {
+        const result = await this.marketItemEntityRepository
+          .createQueryBuilder('item')
+          .select('COALESCE(SUM(item.quantity), 0)', 'count')
+          .where('item.price >= :minPrice', { minPrice: tier.minPrice })
+          .andWhere('item.price <= :maxPrice', { maxPrice: tier.maxPrice })
+          .getRawOne();
+
+        return {
+          ...this.mapper.mapTier(tier),
+          count: parseInt(result.count, 10),
+        };
+      }),
+    );
   }
 
   @Post('tiers')
