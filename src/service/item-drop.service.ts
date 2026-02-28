@@ -32,14 +32,48 @@ export interface FairPriceResult {
 }
 
 /**
+ * Calculate median price from recent sales history.
+ * Uses last 24-72 hours of data, filters out low-quantity outliers.
+ * Returns price in cents (same unit as highestBuyOrder/lowestPrice).
+ */
+function getMedianSalePrice(
+  medianSalePrices: CMarketItem['medianSalePrices'],
+): number | null {
+  if (!medianSalePrices || medianSalePrices.length === 0) {
+    return null;
+  }
+
+  // Take recent sales (last 72 entries = ~3 days of hourly data)
+  // Filter entries with at least 1 sale to avoid empty hours
+  const recentSales = medianSalePrices
+    .slice(-72)
+    .filter((entry) => entry.quantity >= 1);
+
+  if (recentSales.length === 0) {
+    return null;
+  }
+
+  // Sort by price and get median
+  const prices = recentSales.map((entry) => entry.price).sort((a, b) => a - b);
+  const midIndex = Math.floor(prices.length / 2);
+  const medianPrice =
+    prices.length % 2 === 0
+      ? (prices[midIndex - 1] + prices[midIndex]) / 2
+      : prices[midIndex];
+
+  // Convert to cents (medianSalePrices stores as float like 3.23 for 323 cents)
+  return Math.round(medianPrice * 100);
+}
+
+/**
  * Calculates a fair purchase price for an item based on market data.
  *
- * Considers:
- * - Buy order price (highestBuyOrder)
- * - Sell listing price (lowestPrice)
- * - Liquidity (quantity of listings, buy orders)
+ * Strategy based on liquidity:
+ * - High liquidity: Trust the spread, position 40-60% between buy and sell
+ * - Medium liquidity: More conservative, position 20-40% into spread
+ * - Low liquidity: Don't trust sell price, use median history or beat buy by 5-15%
  *
- * For low liquidity items, uses a conservative fraction of the highest buy order.
+ * Uses median sale history to validate prices when available.
  */
 export function calculateFairBuyPrice(
   marketItem: CMarketItem,
@@ -48,17 +82,14 @@ export function calculateFairBuyPrice(
   const lowestSell = marketItem.lowestPrice;
   const sellQuantity = marketItem.quantity || 0;
   const buyQuantity = marketItem.buyQuantity || 0;
+  const medianPrice = getMedianSalePrice(marketItem.medianSalePrices);
 
   // No buy orders - can't determine fair price
   if (Number.isNaN(highestBuy) || highestBuy <= 0) {
     return { price: 0, reason: 'no_buy_orders' };
   }
 
-  // Calculate spread between buy and sell (if sell data available)
   const hasValidSellPrice = !Number.isNaN(lowestSell) && lowestSell > 0;
-  const spread = hasValidSellPrice
-    ? (lowestSell - highestBuy) / highestBuy
-    : Infinity;
 
   // Determine liquidity score based on listings and buy orders
   const liquidityScore =
@@ -70,45 +101,44 @@ export function calculateFairBuyPrice(
   const isHighLiquidity = liquidityScore >= 100;
   const isMediumLiquidity = liquidityScore >= 30;
 
-  // Determine price multiplier based on liquidity and spread
-  let multiplier: number;
+  let price: number;
   let reason: string;
 
-  if (isHighLiquidity && spread < 0.15) {
-    // High liquidity, tight spread - competitive market, can be aggressive
-    multiplier = 0.99;
-    reason = 'high_liquidity_tight_spread';
-  } else if (isHighLiquidity) {
-    // High liquidity but wider spread
-    multiplier = 0.95;
-    reason = 'high_liquidity_wide_spread';
-  } else if (isMediumLiquidity && spread < 0.2) {
-    // Medium liquidity, reasonable spread
-    multiplier = 0.92;
-    reason = 'medium_liquidity';
-  } else if (isMediumLiquidity) {
-    // Medium liquidity, wider spread - be more careful
-    multiplier = 0.85;
-    reason = 'medium_liquidity_wide_spread';
-  } else if (hasValidSellPrice && spread < 0.3) {
-    // Low liquidity but spread is known and not crazy
-    multiplier = 0.8;
-    reason = 'low_liquidity_known_spread';
+  if (isHighLiquidity && hasValidSellPrice) {
+    // High liquidity: trust the spread, position 50% into it (mid-price)
+    const spread = lowestSell - highestBuy;
+    price = Math.floor(highestBuy + spread * 0.5);
+    reason = 'high_liquidity_mid_price';
+  } else if (isMediumLiquidity && hasValidSellPrice) {
+    // Medium liquidity: position 30% into spread
+    const spread = lowestSell - highestBuy;
+    price = Math.floor(highestBuy + spread * 0.3);
+    reason = 'medium_liquidity_spread';
+  } else if (medianPrice !== null && medianPrice > highestBuy) {
+    // Low liquidity but we have median history - use it as reference
+    // Position between highest buy and median (lean toward buy side)
+    const spreadToMedian = medianPrice - highestBuy;
+    price = Math.floor(highestBuy + spreadToMedian * 0.4);
+    reason = 'low_liquidity_median_based';
   } else {
-    // Low liquidity, unknown or very wide spread - safe bet
-    multiplier = 0.7;
-    reason = 'low_liquidity_safe_bet';
+    // Low liquidity, no reliable data - just beat highest buy by 10%
+    price = Math.floor(highestBuy * 1.1);
+    reason = 'low_liquidity_beat_buy';
   }
 
-  // If we have sell price data, also consider it as a ceiling
-  // Never pay more than 85% of the lowest sell price
-  let price = Math.floor(highestBuy * multiplier);
+  // Safety ceiling: never pay more than 90% of lowest sell (if available)
   if (hasValidSellPrice) {
-    const sellCeiling = Math.floor(lowestSell * 0.85);
+    const sellCeiling = Math.floor(lowestSell * 0.9);
     if (price > sellCeiling) {
       price = sellCeiling;
       reason += '_capped_by_sell';
     }
+  }
+
+  // Floor: always at least match highest buy order
+  if (price < highestBuy) {
+    price = highestBuy;
+    reason += '_floored_to_buy';
   }
 
   return { price, reason };
