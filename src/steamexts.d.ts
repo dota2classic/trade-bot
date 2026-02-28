@@ -3,6 +3,8 @@ import CEconItem2 from 'steamcommunity/classes/CEconItem';
 
 export declare class CMarketItem extends CMarketItem2 {
   highestBuyOrder: number;
+  /** Number of buy orders for this item. Only set for commodity items after updatePrice(). */
+  buyQuantity: number;
   assets: CEconItem[];
   firstAsset: CEconItem;
   _hashName: string;

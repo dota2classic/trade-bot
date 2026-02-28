@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { DataSource, IsNull, Not, Repository } from 'typeorm';
 import { Steam } from '../steam';
 import { DOTA_APPID, ItemQuality, ItemRarity } from '../constant';
-import { CEconItem } from '../steamexts';
+import { CEconItem, CMarketItem } from '../steamexts';
 import { InventoryItemEntity } from '../entities/inventory-item.entity';
 import { marketHashToSelectorName } from '../util/marketHashToName';
 import { toMarketHashNameParts } from '../util/marketHashName';
@@ -25,6 +25,94 @@ import { ConfigService } from '@nestjs/config';
 import { ItemDropLogEntity } from '../entities/item-drop-log.entity';
 import { wait } from '../util/wait';
 import { Cron, CronExpression } from '@nestjs/schedule';
+
+export interface FairPriceResult {
+  price: number;
+  reason: string;
+}
+
+/**
+ * Calculates a fair purchase price for an item based on market data.
+ *
+ * Considers:
+ * - Buy order price (highestBuyOrder)
+ * - Sell listing price (lowestPrice)
+ * - Liquidity (quantity of listings, buy orders)
+ *
+ * For low liquidity items, uses a conservative fraction of the highest buy order.
+ */
+export function calculateFairBuyPrice(
+  marketItem: CMarketItem,
+): FairPriceResult {
+  const highestBuy = marketItem.highestBuyOrder;
+  const lowestSell = marketItem.lowestPrice;
+  const sellQuantity = marketItem.quantity || 0;
+  const buyQuantity = marketItem.buyQuantity || 0;
+
+  // No buy orders - can't determine fair price
+  if (Number.isNaN(highestBuy) || highestBuy <= 0) {
+    return { price: 0, reason: 'no_buy_orders' };
+  }
+
+  // Calculate spread between buy and sell (if sell data available)
+  const hasValidSellPrice = !Number.isNaN(lowestSell) && lowestSell > 0;
+  const spread = hasValidSellPrice
+    ? (lowestSell - highestBuy) / highestBuy
+    : Infinity;
+
+  // Determine liquidity score based on listings and buy orders
+  const liquidityScore =
+    Math.min(sellQuantity, 100) + Math.min(buyQuantity, 100);
+
+  // High liquidity: 100+ combined listings/orders
+  // Medium liquidity: 30-100
+  // Low liquidity: <30
+  const isHighLiquidity = liquidityScore >= 100;
+  const isMediumLiquidity = liquidityScore >= 30;
+
+  // Determine price multiplier based on liquidity and spread
+  let multiplier: number;
+  let reason: string;
+
+  if (isHighLiquidity && spread < 0.15) {
+    // High liquidity, tight spread - competitive market, can be aggressive
+    multiplier = 0.99;
+    reason = 'high_liquidity_tight_spread';
+  } else if (isHighLiquidity) {
+    // High liquidity but wider spread
+    multiplier = 0.95;
+    reason = 'high_liquidity_wide_spread';
+  } else if (isMediumLiquidity && spread < 0.2) {
+    // Medium liquidity, reasonable spread
+    multiplier = 0.92;
+    reason = 'medium_liquidity';
+  } else if (isMediumLiquidity) {
+    // Medium liquidity, wider spread - be more careful
+    multiplier = 0.85;
+    reason = 'medium_liquidity_wide_spread';
+  } else if (hasValidSellPrice && spread < 0.3) {
+    // Low liquidity but spread is known and not crazy
+    multiplier = 0.8;
+    reason = 'low_liquidity_known_spread';
+  } else {
+    // Low liquidity, unknown or very wide spread - safe bet
+    multiplier = 0.7;
+    reason = 'low_liquidity_safe_bet';
+  }
+
+  // If we have sell price data, also consider it as a ceiling
+  // Never pay more than 85% of the lowest sell price
+  let price = Math.floor(highestBuy * multiplier);
+  if (hasValidSellPrice) {
+    const sellCeiling = Math.floor(lowestSell * 0.85);
+    if (price > sellCeiling) {
+      price = sellCeiling;
+      reason += '_capped_by_sell';
+    }
+  }
+
+  return { price, reason };
+}
 
 interface ItemToBuy {
   market_hash_name: string;
@@ -173,16 +261,18 @@ export class ItemDropService {
     const marketItem =
       await this.itemPriceService.getMarketItemByName(hashName);
 
-    if (Number.isNaN(marketItem.highestBuyOrder)) {
+    const { price: fairPrice, reason: priceReason } =
+      calculateFairBuyPrice(marketItem);
+
+    if (fairPrice <= 0) {
       this.logger.warn(
-        `There are no buy orders for item ${hashName}! Skipping it`,
+        `Cannot determine fair price for ${hashName} (${priceReason})! Skipping it`,
       );
       return;
     }
-    const fairPrice = Math.floor(marketItem.highestBuyOrder * 0.98);
 
     this.logger.log(
-      `Restock tier ${toPurchase.tier} with ${hashName}: ${toPurchase.tier_stock} / ${toPurchase.expected_stock}. Buying one for ${fairPrice}`,
+      `Restock tier ${toPurchase.tier} with ${hashName}: ${toPurchase.tier_stock} / ${toPurchase.expected_stock}. Buying for ${fairPrice} (${priceReason})`,
     );
 
     await this.itemPriceService.handleMarketItem(
