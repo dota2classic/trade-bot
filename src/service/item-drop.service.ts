@@ -84,12 +84,19 @@ export function calculateFairBuyPrice(
   const buyQuantity = marketItem.buyQuantity || 0;
   const medianPrice = getMedianSalePrice(marketItem.medianSalePrices);
 
-  // No buy orders - can't determine fair price
-  if (Number.isNaN(highestBuy) || highestBuy <= 0) {
+  const hasValidBuyPrice = !Number.isNaN(highestBuy) && highestBuy > 0;
+  const hasValidSellPrice = !Number.isNaN(lowestSell) && lowestSell > 0;
+
+  // No buy orders - fallback to sell price if available
+  if (!hasValidBuyPrice) {
+    if (hasValidSellPrice && sellQuantity >= 5) {
+      // Multiple sell orders with similar prices = reliable sell data
+      // Use 90% of lowest sell as our bid
+      const price = Math.floor(lowestSell * 0.9);
+      return { price, reason: 'no_buy_orders_use_sell' };
+    }
     return { price: 0, reason: 'no_buy_orders' };
   }
-
-  const hasValidSellPrice = !Number.isNaN(lowestSell) && lowestSell > 0;
 
   // Determine liquidity score based on listings and buy orders
   const liquidityScore =

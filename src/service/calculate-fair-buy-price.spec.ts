@@ -35,24 +35,62 @@ function createMedianSales(
 
 describe('calculateFairBuyPrice', () => {
   describe('edge cases', () => {
-    it('should return 0 when highestBuyOrder is NaN', () => {
-      const item = createMockMarketItem({ highestBuyOrder: NaN });
+    it('should return 0 when highestBuyOrder is NaN and no sell orders', () => {
+      const item = createMockMarketItem({
+        highestBuyOrder: NaN,
+        lowestPrice: 0,
+        quantity: 0,
+      });
       const result = calculateFairBuyPrice(item);
 
       expect(result.price).toBe(0);
       expect(result.reason).toBe('no_buy_orders');
     });
 
-    it('should return 0 when highestBuyOrder is 0', () => {
-      const item = createMockMarketItem({ highestBuyOrder: 0 });
+    it('should return 0 when highestBuyOrder is 0 and no sell orders', () => {
+      const item = createMockMarketItem({
+        highestBuyOrder: 0,
+        lowestPrice: 0,
+        quantity: 0,
+      });
       const result = calculateFairBuyPrice(item);
 
       expect(result.price).toBe(0);
       expect(result.reason).toBe('no_buy_orders');
     });
 
-    it('should return 0 when highestBuyOrder is negative', () => {
-      const item = createMockMarketItem({ highestBuyOrder: -100 });
+    it('should return 0 when highestBuyOrder is negative and no sell orders', () => {
+      const item = createMockMarketItem({
+        highestBuyOrder: -100,
+        lowestPrice: 0,
+        quantity: 0,
+      });
+      const result = calculateFairBuyPrice(item);
+
+      expect(result.price).toBe(0);
+      expect(result.reason).toBe('no_buy_orders');
+    });
+
+    it('should use 90% of sell price when no buy orders but 5+ sell orders', () => {
+      const item = createMockMarketItem({
+        highestBuyOrder: NaN,
+        lowestPrice: 500,
+        quantity: 20, // 20 sell orders
+        buyQuantity: 0,
+      });
+      const result = calculateFairBuyPrice(item);
+
+      expect(result.price).toBe(450); // 500 * 0.9
+      expect(result.reason).toBe('no_buy_orders_use_sell');
+    });
+
+    it('should return 0 when no buy orders and fewer than 5 sell orders', () => {
+      const item = createMockMarketItem({
+        highestBuyOrder: 0,
+        lowestPrice: 500,
+        quantity: 3, // only 3 sell orders - not reliable
+        buyQuantity: 0,
+      });
       const result = calculateFairBuyPrice(item);
 
       expect(result.price).toBe(0);
