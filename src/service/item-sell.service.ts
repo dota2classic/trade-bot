@@ -33,59 +33,59 @@ export class ItemSellService implements OnApplicationBootstrap {
 
   async onApplicationBootstrap() {}
 
-  // @Cron(CronExpression.EVERY_HOUR)
-  // public async cancelBadSales() {
-  //   if (!this.config.get('trade.scrape')) return;
-  //
-  //   const perPage = 100;
-  //   for (let i = 0; i < 10; i++) {
-  //     const start = i * perPage;
-  //     try {
-  //       const listings = await this.rl.enqueue(() =>
-  //         this.steam.market.myListings(start, perPage),
-  //       );
-  //       if (!listings.success) {
-  //         this.logger.warn('Error getting listings!');
-  //         break;
-  //       }
-  //       if (listings.listings.length === 0) {
-  //         break;
-  //       }
-  //
-  //       const formatted = listings.listings.map((t) => ({
-  //         listingDate: t.timeCreated && new Date(t.timeCreated * 1000),
-  //         listingId: t.listingId,
-  //       }));
-  //
-  //       const outdated = formatted.filter(
-  //         (t) =>
-  //           t.listingDate &&
-  //           Date.now() - t.listingDate.getTime() >
-  //             ItemSellService.TRADE_LISTING_OUTDATED_THRESHOLD,
-  //       ); // Week old
-  //       for (const listing of outdated) {
-  //         this.logger.log(
-  //           `Removing outdated listing at ${listing.listingDate.toISOString()}`,
-  //         );
-  //         try {
-  //           await this.rl.enqueue(() =>
-  //             this.steam.market.cancelSellOrder(listing.listingId),
-  //           );
-  //         } catch (e) {
-  //           this.logger.warn("Couldn't cancel listing!", e);
-  //         }
-  //       }
-  //
-  //       // We already covered all of them, no need to request more
-  //       if (listings.totalCount < perPage) {
-  //         break;
-  //       }
-  //     } catch (e) {
-  //       this.logger.warn("Couldn't remove listing!", e);
-  //     }
-  //   }
-  //   this.logger.log('Checked for outdated trades.');
-  // }
+  @Cron(CronExpression.EVERY_HOUR)
+  public async cancelBadSales() {
+    if (!this.config.get('trade.scrape')) return;
+
+    const perPage = 100;
+    for (let i = 0; i < 10; i++) {
+      const start = i * perPage;
+      try {
+        const listings = await this.rl.enqueue(() =>
+          this.steam.market.myListings(start, perPage),
+        );
+        if (!listings.success) {
+          this.logger.warn('Error getting listings!');
+          break;
+        }
+        if (listings.listings.length === 0) {
+          break;
+        }
+
+        const formatted = listings.listings.map((t) => ({
+          listingDate: t.timeCreated && new Date(t.timeCreated * 1000),
+          listingId: t.listingId,
+        }));
+
+        const outdated = formatted.filter(
+          (t) =>
+            t.listingDate &&
+            Date.now() - t.listingDate.getTime() >
+              ItemSellService.TRADE_LISTING_OUTDATED_THRESHOLD,
+        ); // Week old
+        for (const listing of outdated) {
+          this.logger.log(
+            `Removing outdated listing at ${listing.listingDate.toISOString()}`,
+          );
+          try {
+            await this.rl.enqueue(() =>
+              this.steam.market.cancelSellOrder(listing.listingId),
+            );
+          } catch (e) {
+            this.logger.warn("Couldn't cancel listing!", e);
+          }
+        }
+
+        // We already covered all of them, no need to request more
+        if (listings.totalCount < perPage) {
+          break;
+        }
+      } catch (e) {
+        this.logger.warn("Couldn't remove listing!", e);
+      }
+    }
+    this.logger.log('Checked for outdated trades.');
+  }
 
   @Cron(CronExpression.EVERY_5_MINUTES)
   public async trySellOutdatedItems() {
