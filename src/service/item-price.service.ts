@@ -246,8 +246,12 @@ export class ItemPriceService {
     quantity: number,
     upsert: boolean,
   ) {
-    if (Number.isNaN(price)) {
+    if (price == null || Number.isNaN(price)) {
       this.logger.warn(`Tried to save NaN price! ${marketHashName}`);
+      return;
+    }
+    if (price <= 0) {
+      this.logger.warn(`Tried to save 0 price! ${marketHashName}`);
       return;
     }
     let itemName = marketHashName;
