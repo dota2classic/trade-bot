@@ -202,7 +202,6 @@ export class ItemPriceService {
       .filter((t) => t.quantity > 1)
       .slice(0, 60);
 
-
     // Prices in historical data are in RUB e.g. (3.23 instead of 323, 9.99 instead of 999)
     const avgPrice =
       (100 * historicalData.map((t) => t.price).reduce((a, b) => a + b, 0)) /
@@ -218,7 +217,11 @@ export class ItemPriceService {
       `Sell Info in last 60 entries for item ${name}. Lowest RN=${mitem.lowestPrice}, AVG=${avgPrice}, Median=${medianPrice}`,
     );
 
-    const priceToSell = Math.max(basePrice, medianPrice, avgPrice);
+    const priceToSell = Math.max(medianPrice, mitem.lowestPrice);
+
+    this.logger.log(
+      `Sell price for ${name}: ${formatPrice(priceToSell)} -> ${formatPrice(priceToSell * 0.87)} `,
+    );
     return Math.ceil(priceToSell * 0.87);
   };
 
