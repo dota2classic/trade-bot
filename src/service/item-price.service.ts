@@ -250,8 +250,8 @@ export class ItemPriceService {
       this.logger.warn(`Tried to save NaN price! ${marketHashName}`);
       return;
     }
-    if (price <= 0) {
-      this.logger.warn(`Tried to save 0 price! ${marketHashName}`);
+    if (price < 0) {
+      this.logger.warn(`Tried to save negative price! ${marketHashName}`);
       return;
     }
     let itemName = marketHashName;
