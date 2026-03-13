@@ -27,9 +27,7 @@ export class ItemSellService implements OnApplicationBootstrap {
     private readonly config: ConfigService,
     private readonly itemPriceService: ItemPriceService,
     private readonly rl: RateLimiter,
-  ) {
-
-  }
+  ) {}
 
   async onApplicationBootstrap() {}
 
@@ -96,6 +94,8 @@ export class ItemSellService implements OnApplicationBootstrap {
 
     const APP_ID = SUPPORTED_APP_IDS[this.inventory_index];
 
+    this.logger.log(`Trying to sell from game ${APP_ID}`);
+
     // TODO: make this request our db not inventory
     const ownedItems = await new Promise<CEconItem[]>((resolve, reject) => {
       this.steam.trade.getInventoryContents(APP_ID, 2, false, (err, res) => {
@@ -123,6 +123,10 @@ export class ItemSellService implements OnApplicationBootstrap {
         !isTradable(t.item) ||
         existing.findIndex((ex) => ex.marketHashName === t.marketHashName) ===
           -1,
+    );
+
+    this.logger.log(
+      `Found ${outdatedItems.length} outdated items(need to sell). ${existing.length} existing items. ${ownedItems.length} owned items. ${selectors.length} total items.`,
     );
 
     for (const item of outdatedItems.reverse().slice(0, 1)) {

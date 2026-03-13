@@ -7,7 +7,7 @@ export const SUPPORTED_APP_IDS = [
   // 3050630, // Melon
   // 3070500, // Coin
   // 2923300, // Banana
-  753, // Steam
+  // 753, // Steam
   570, // Dota
   440, // TeamFortress
   730, // Counter strike
