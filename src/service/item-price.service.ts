@@ -222,7 +222,7 @@ export class ItemPriceService {
     this.logger.log(
       `Sell price for ${name}: ${formatPrice(priceToSell)} -> ${formatPrice(priceToSell * 0.87)} `,
     );
-    return Math.ceil(priceToSell * 0.87);
+    return Math.ceil(priceToSell * 0.87 + 50);
   };
 
   public async handleMarketItem(fullName: string, item: CMarketItem) {
