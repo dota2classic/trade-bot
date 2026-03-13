@@ -28,12 +28,12 @@ export class ItemSellService implements OnApplicationBootstrap {
     private readonly itemPriceService: ItemPriceService,
     private readonly rl: RateLimiter,
   ) {
-    // this.trySellOutdatedItems();
+
   }
 
   async onApplicationBootstrap() {}
 
-  @Cron(CronExpression.EVERY_HOUR)
+  @Cron(CronExpression.EVERY_3_HOURS)
   public async cancelBadSales() {
     if (!this.config.get('trade.scrape')) return;
 
