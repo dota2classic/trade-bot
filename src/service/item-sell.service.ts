@@ -129,7 +129,7 @@ export class ItemSellService implements OnApplicationBootstrap {
       `Found ${outdatedItems.length} outdated items(need to sell). ${existing.length} existing items. ${ownedItems.length} owned items. ${selectors.length} total items.`,
     );
 
-    for (const item of outdatedItems.reverse().slice(0, 1)) {
+    for (const item of outdatedItems.reverse().slice(0, 10)) {
       this.logger.log(
         `Selling item ${item.marketHashName} because: ${isTradable(item.item) ? 'outdated' : ' non-tradable'}!`,
       );
