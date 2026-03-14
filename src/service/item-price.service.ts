@@ -217,12 +217,10 @@ export class ItemPriceService {
       `Sell Info in last 60 entries for item ${name}. Lowest RN=${mitem.lowestPrice}, AVG=${avgPrice}, Median=${medianPrice}`,
     );
 
-    const priceToSell = Math.max(medianPrice, mitem.lowestPrice);
+    const priceToSell = Math.max(medianPrice, mitem.lowestPrice) * 0.8 - 20;
 
-    this.logger.log(
-      `Sell price for ${name}: ${formatPrice(priceToSell)} -> ${formatPrice(priceToSell * 0.87)} `,
-    );
-    return Math.ceil(priceToSell * 0.87 + 50);
+    this.logger.log(`Sell price for ${name}: ${formatPrice(priceToSell)}`);
+    return Math.ceil(priceToSell);
   };
 
   public async handleMarketItem(fullName: string, item: CMarketItem) {
