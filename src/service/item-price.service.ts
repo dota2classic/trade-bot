@@ -217,7 +217,7 @@ export class ItemPriceService {
       `Sell Info in last 60 entries for item ${name}. Lowest RN=${mitem.lowestPrice}, AVG=${avgPrice}, Median=${medianPrice}`,
     );
 
-    const priceToSell = Math.max(medianPrice, mitem.lowestPrice) * 0.8 - 20;
+    const priceToSell = Math.max(medianPrice, mitem.lowestPrice) * 0.6 - 20;
 
     this.logger.log(`Sell price for ${name}: ${formatPrice(priceToSell)}`);
     return Math.ceil(priceToSell);
