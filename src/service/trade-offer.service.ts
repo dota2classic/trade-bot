@@ -313,8 +313,7 @@ export class TradeOfferService implements OnApplicationBootstrap {
           );
         }
 
-        user.balance += totalTradedBalance;
-        user.balance = Math.floor(totalTradedBalance);
+        user.balance = Math.floor(user.balance + totalTradedBalance);
         await tx.save(UserMarketBalanceEntity, user);
         this.logger.log(
           `Successfully handled trade offer ${offer.id} for ${totalTradedBalance} amount from ${user.steamId}`,
